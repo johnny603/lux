@@ -41,7 +41,7 @@ python agent.py
 - For script-based levels, `POST /submit` accepts JSON `{ "level_id": "5", "files": { "answer.c": "<source>" } }` and returns test output.
 - The agent uses Ollama (`llama3.2`) to produce contextual hints; it instructs the model not to reveal flags.
 
-## Next steps you might ask for
+## Next steps
 
 - Add more levels with staged tasks and progressive hints.
 - Implement an interactive web UI.
