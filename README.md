@@ -11,7 +11,7 @@
 2. Install dependencies:
 
 ```bash
-python -m pip install -r requirements.txt
+python3 -m pip install -r requirements.txt
 ```
 
 ## Run
@@ -19,13 +19,13 @@ python -m pip install -r requirements.txt
 1. Start the server:
 
 ```bash
-python server.py
+python3 server.py
 ```
 
 1. In another terminal, run the agent:
 
 ```bash
-python agent.py
+python3 agent.py
 ```
 
 ## Notes and security
