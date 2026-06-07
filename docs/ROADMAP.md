@@ -2,6 +2,11 @@
 
 > Long-term vision: Build Lux into a puzzle-based learning platform that combines Linux, programming, cybersecurity, and AI-assisted learning with a modern cross-platform experience.
 
+If you want to work on a section of the roadmap
+Get my approval and format the branch like this:
+<username>/<scope>/<feature>
+
+
 ## Core Platform
 
 * [x] Flask puzzle server
