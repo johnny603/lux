@@ -213,4 +213,4 @@ def run_in_docker(files: dict, test_script: str) -> dict:
 
 if __name__ == "__main__":
   # Run dev server. For production use a proper WSGI server and sandboxing for execution.
-  app.run(host="127.0.0.1", port=5000, debug=False, use_reloader=False)
+  app.run(host="127.0.0.1", port=5050, debug=False, use_reloader=False)
