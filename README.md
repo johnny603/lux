@@ -7,26 +7,43 @@
 
 ## Setup
 
-1. Ensure you have Python 3.10+ and a running Ollama service with model `llama3.2` available locally.
-2. Install dependencies:
+- Python 3.10+
+- Docker installed and running (required for script-based puzzles)
+- Ollama installed and running locally
+- Model llama3.2 pulled
 
-```bash
+It is recomended to use a virtual environment
+```
+python3 -m venv venv
+source venv/bin/activate
+```
+
+1. Install dependencies:
+
+```
 python3 -m pip install -r requirements.txt
 ```
 
 ## Run
+2. Start Ollama service
+```
+ollama serve
+ollama pull llama3.2
+ollama list
+```
 
-1. Start the server:
+3. Start the server:
 
-```bash
+```
 python3 server.py
 ```
 
-1. In another terminal, run the agent:
+4. In another terminal, run the agent:
 
-```bash
+```
 python3 agent.py
 ```
+Server is hosted in http://127.0.0.1:5050
 
 ## Notes and security
 
