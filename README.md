@@ -1,5 +1,9 @@
 # Interactive Puzzle Server + Agent
 
+![CI](https://github.com/johnny603/lux/actions/workflows/ci.yml/badge.svg)
+
+![CodeQL](https://github.com/johnny603/lux/actions/workflows/codeql.yml/badge.svg)
+
 ## Overview
 
 - A minimal Flask-based puzzle server exposing simple levels and a validation endpoint.
