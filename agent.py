@@ -1,11 +1,10 @@
 import os
 
+SERVER = os.getenv("PUZZLE_SERVER", "http://127.0.0.1:5050")
+
 import ollama
 import requests
 from requests.exceptions import RequestException
-
-SERVER = "http://127.0.0.1:5000"
-
 
 def list_levels():
   try:
