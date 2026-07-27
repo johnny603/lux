@@ -60,6 +60,14 @@ Server is hosted in http://127.0.0.1:5050
 - For script-based levels, `POST /submit` accepts JSON `{ "level_id": "5", "files": { "answer.c": "<source>" } }` and returns test output.
 - The agent uses Ollama (`llama3.2`) to produce contextual hints; it instructs the model not to reveal flags.
 
+## Current Puzzle Catalog
+
+- Linux: command-line navigation, process management, networking, package management, shell scripting, permissions, logs, system administration, and Bash levels
+- Programming: C pointers, memory management, data structures, algorithms, Python comprehensions, Java entry points, and JavaScript equality
+- Cybersecurity: web security, reverse engineering, digital forensics, cryptography, secure coding, and beginner CTF-style levels
+- DevOps: Docker, Git, CI/CD, and cloud fundamentals
+- Every puzzle includes `category`, `difficulty`, and `tags` metadata for filtering in the agent and future UI work
+
 ## Next steps
 
 - Add more levels with staged tasks and progressive hints.
