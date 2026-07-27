@@ -58,6 +58,14 @@ Get my approval and format the branch like this:
 * [x] CI/CD exercises
 * [x] Cloud fundamentals
 
+### Current Puzzle Catalog
+
+* Linux command, scripting, and admin levels are implemented
+* Programming levels cover C, Python, Java, and JavaScript
+* Cybersecurity levels cover web security, reverse engineering, forensics, cryptography, secure coding, and beginner CTFs
+* DevOps levels cover Docker, Git, CI/CD, and cloud fundamentals
+* Each puzzle includes category, difficulty, and tags metadata for filtering
+
 ## User Experience
 
 ### CLI Improvements

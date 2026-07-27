@@ -42,10 +42,14 @@ def submit_files(level_id, files: dict):
 
 def ask_hint_via_ollama(level):
   # Ask the model for a hint without revealing the answer
+  tags = ", ".join(level.get("tags", []))
   prompt = (
     "You are a helpful tutor for C and Linux puzzles. "
     "The user is working on this puzzle:\n\n"
     f"Title: {level['title']}\nDescription: {level['description']}\n\n"
+    f"Category: {level.get('category', 'uncategorized')}\n"
+    f"Difficulty: {level.get('difficulty', 'unknown')}\n"
+    f"Tags: {tags or 'none'}\n\n"
     "Provide a concise hint or a small step the user can try next. "
     "Do NOT reveal the flag or exact command; avoid giving full step-by-step answers. "
   )
@@ -57,7 +61,10 @@ def ask_hint_via_ollama(level):
 def print_levels(levels):
   print("\nAvailable levels:")
   for lvl in levels:
-    print(f"  {lvl['id']}: {lvl['title']}")
+    tags = ", ".join(lvl.get("tags", []))
+    print(f"  {lvl['id']}: {lvl['title']} [{lvl.get('category', 'uncategorized')} | {lvl.get('difficulty', 'unknown')}]")
+    if tags:
+      print(f"      tags: {tags}")
 
 
 def read_files_from_paths():
