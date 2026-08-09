@@ -15,6 +15,14 @@ def test_web_browser_and_dashboard_render():
     assert response.status_code == 200
     assert b"Progress Dashboard" in response.data
 
+    response = client.get("/profile")
+    assert response.status_code == 200
+    assert b"User Profile" in response.data
+
+    response = client.get("/leaderboard")
+    assert response.status_code == 200
+    assert b"Leaderboard" in response.data
+
 
 def test_versioned_api_endpoints():
     client = server.app.test_client()
@@ -32,6 +40,22 @@ def test_versioned_api_endpoints():
     payload = response.get_json()
     assert "progress" in payload
     assert "achievements" in payload
+
+    response = client.get("/api/v1/profile")
+    assert response.status_code == 200
+    assert "display_name" in response.get_json()
+
+    response = client.get("/api/v1/leaderboard")
+    assert response.status_code == 200
+    assert "entries" in response.get_json()
+
+    response = client.get("/api/v1/learning-path")
+    assert response.status_code == 200
+    assert "recommended_levels" in response.get_json()
+
+    response = client.get("/api/v1/game/daily")
+    assert response.status_code == 200
+    assert "level" in response.get_json()
 
 
 def test_web_submission_flow(monkeypatch):

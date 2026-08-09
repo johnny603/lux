@@ -1,11 +1,13 @@
 from flask import Flask, jsonify, request, render_template
 from flask_wtf import CSRFProtect
 from datetime import datetime
-import subprocess
-import tempfile
 import os
-import shutil
 import storage
+import leaderboard
+import learning_paths
+import game_systems
+import puzzle_generator
+from sandbox import DockerSandbox, get_runtime
 
 app = Flask(__name__)
 app.secret_key = os.getenv("LUX_SECRET_KEY") or os.urandom(32).hex()
@@ -410,6 +412,109 @@ def submit():
     return validate(puzzle, attempt, files)
 
 
+@app.route("/api/v1/profile", methods=["GET", "PUT"])
+def api_profile():
+    state = storage.load_state()
+    if request.method == "GET":
+        return jsonify(storage.get_profile(state))
+    data = request.json or {}
+    profile = storage.update_profile(
+        state,
+        display_name=data.get("display_name"),
+        preferences=data.get("preferences"),
+    )
+    storage.save_state(state)
+    return jsonify(profile)
+
+
+@app.route("/api/v1/leaderboard", methods=["GET"])
+def api_leaderboard():
+    state = storage.load_state()
+    metric = (request.args.get("metric") or "solved_count").strip()
+    return jsonify(leaderboard.get_leaderboard(state, catalog_levels(), metric=metric))
+
+
+@app.route("/api/v1/learning-path", methods=["GET"])
+def api_learning_path():
+    state = storage.load_state()
+    limit = int(request.args.get("limit", 5))
+    return jsonify(learning_paths.build_learning_path(state, catalog_levels(), limit=limit))
+
+
+@app.route("/api/v1/game/adventure", methods=["GET"])
+def api_adventure():
+    state = storage.load_state()
+    return jsonify(game_systems.adventure_status(state, catalog_levels()))
+
+
+@app.route("/api/v1/game/daily", methods=["GET"])
+def api_daily():
+    state = storage.load_state()
+    return jsonify(game_systems.daily_challenge_status(state, catalog_levels()))
+
+
+@app.route("/api/v1/puzzles/generate", methods=["POST"])
+@csrf.exempt
+def api_generate_puzzle():
+    data = request.json or {}
+    category = (data.get("category") or "Programming").strip()
+    difficulty = (data.get("difficulty") or "easy").strip().lower()
+    topic = (data.get("topic") or "practice").strip()
+    existing_ids = {puzzle["id"] for puzzle in PUZZLES}
+    next_id = str(max(int(p["id"]) for p in PUZZLES) + 1)
+    try:
+        generated = puzzle_generator.generate_puzzle_with_ai(
+            category=category,
+            difficulty=difficulty,
+            topic=topic,
+            existing_ids=existing_ids,
+            next_id=next_id,
+        )
+    except Exception as exc:
+        return response(False, error=str(exc)), 400
+    return jsonify({"ok": True, "puzzle": generated})
+
+
+@app.route("/profile", methods=["GET", "POST"])
+def web_profile():
+    state = storage.load_state()
+    message = None
+    if request.method == "POST":
+        preferences = {
+            "difficulty_preference": (request.form.get("difficulty_preference") or "any").strip(),
+            "hint_style": (request.form.get("hint_style") or "concise").strip(),
+            "show_solved_first": request.form.get("show_solved_first") == "on",
+            "favorite_categories": [
+                item.strip()
+                for item in (request.form.get("favorite_categories") or "").split(",")
+                if item.strip()
+            ],
+        }
+        storage.update_profile(
+            state,
+            display_name=request.form.get("display_name"),
+            preferences=preferences,
+        )
+        storage.save_state(state)
+        leaderboard.upsert_local_entry(state, catalog_levels())
+        message = "Profile saved."
+    profile = storage.get_profile(state)
+    return render_template(
+        "profile.html",
+        profile=profile,
+        categories=sorted({lvl["category"] for lvl in catalog_levels()}),
+        message=message,
+    )
+
+
+@app.route("/leaderboard", methods=["GET"])
+def web_leaderboard():
+    state = storage.load_state()
+    metric = (request.args.get("metric") or "solved_count").strip()
+    board = leaderboard.get_leaderboard(state, catalog_levels(), metric=metric)
+    return render_template("leaderboard.html", board=board, metric=metric)
+
+
 @app.route("/api/v1/levels", methods=["GET"])
 def api_levels():
     return jsonify(catalog_levels())
@@ -520,6 +625,14 @@ def web_submit(pid):
 
 
 
+def build_docker_command(source_dir):
+    return DockerSandbox().build_command(source_dir)
+
+
+def run_docker(files, script):
+    return get_runtime().run(files, script)
+
+
 def validate(puzzle, attempt, files):
     v = puzzle.get("validator", "equals")
 
@@ -539,66 +652,6 @@ def validate(puzzle, attempt, files):
             return response(False, error=str(e)), 500
 
     return response(False, error="unsupported validator"), 400
-
-
-def build_docker_command(source_dir):
-    return [
-        "docker", "run", "--rm",
-        "--network", "none",
-        "--read-only",
-        "--cap-drop", "ALL",
-        "--security-opt", "no-new-privileges",
-        "--security-opt", "seccomp=default",
-        "--pids-limit", "64",
-        "--memory", "256m",
-        "--cpus", "0.5",
-        "--user", "65534:65534",
-        "--ipc", "none",
-        "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=64m",
-        "--tmpfs", "/work:rw,nosuid,nodev,noexec,size=64m",
-        "-v", f"{source_dir}:/src:ro",
-        "gcc:12",
-        "/bin/sh", "-lc",
-        "cp -R /src/. /work/ && cd /work && sh ./run.sh",
-    ]
-
-
-def _materialize_sandbox(source_dir, files, script):
-    for name, content in files.items():
-        path = os.path.join(source_dir, os.path.basename(name))
-        with open(path, "w") as f:
-            f.write(content)
-
-    runner = os.path.join(source_dir, "run.sh")
-    with open(runner, "w") as f:
-        f.write("#!/bin/sh\nset -e\n")
-        f.write(script + "\n")
-
-    os.chmod(runner, 0o700)
-
-
-def run_docker(files, script):
-    tmp = tempfile.mkdtemp(prefix="puzzle_")
-
-    try:
-        _materialize_sandbox(tmp, files, script)
-        cmd = build_docker_command(tmp)
-
-        proc = subprocess.run(cmd, capture_output=True, timeout=15)
-
-        return {
-            "passed": proc.returncode == 0,
-            "exit_code": proc.returncode,
-            "stdout": proc.stdout.decode(errors="ignore"),
-            "stderr": proc.stderr.decode(errors="ignore"),
-        }
-
-    except subprocess.TimeoutExpired:
-        return {"passed": False, "error": "timeout"}
-
-    finally:
-        shutil.rmtree(tmp, ignore_errors=True)
-
 
 
 if __name__ == "__main__":

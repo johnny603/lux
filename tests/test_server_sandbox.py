@@ -1,4 +1,5 @@
 import server
+import sandbox
 
 
 class _CompletedProcess:
@@ -18,6 +19,7 @@ def test_build_docker_command_hardens_sandbox():
     assert "--security-opt" in cmd
     assert "--pids-limit" in cmd and cmd[cmd.index("--pids-limit") + 1] == "64"
     assert "--user" in cmd and cmd[cmd.index("--user") + 1] == "65534:65534"
+    assert "--userns" in cmd
     assert "--tmpfs" in cmd
     assert "/work:rw,nosuid,nodev,noexec,size=64m" in cmd
     assert "-v" in cmd and cmd[cmd.index("-v") + 1] == "/tmp/workdir:/src:ro"
@@ -33,7 +35,7 @@ def test_run_docker_uses_hardened_command(monkeypatch, tmp_path):
         captured["timeout"] = timeout
         return _CompletedProcess(returncode=0, stdout=b"ok", stderr=b"")
 
-    monkeypatch.setattr(server.subprocess, "run", fake_run)
+    monkeypatch.setattr(sandbox.subprocess, "run", fake_run)
 
     result = server.run_docker({"answer.c": "int main(void){return 0;}"}, "echo ok")
 

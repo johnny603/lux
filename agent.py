@@ -9,6 +9,9 @@ from requests.exceptions import RequestException
 import storage
 import cli
 import achievements
+import learning_paths
+import game_systems
+import leaderboard
 
 def list_levels():
   try:
@@ -198,10 +201,18 @@ def _persist_attempt_state(state, choice, lvl, attempt_preview, correct):
       category=lvl.get("category"),
     )
     try:
+      game_systems.on_level_solved(state, lvl)
+    except Exception:
+      pass
+    try:
       levels = list_levels()
     except Exception:
       levels = []
     newly = achievements.evaluate_achievements(state, levels)
+    try:
+      leaderboard.upsert_local_entry(state, levels)
+    except Exception:
+      pass
     if newly:
       print("New achievements unlocked:")
       for a in newly:
@@ -314,6 +325,25 @@ def _handle_menu_choice(choice, state, levels):
     else:
       print("Reset cancelled.")
     return True
+  if lowered in ("path", "learning-path", "recommend"):
+    try:
+      path = learning_paths.build_learning_path(state, levels)
+      print(path.get("summary"))
+      print("Recommended levels:")
+      for item in path.get("recommended_levels", []):
+        print(f"  - {item.get('id')}: {item.get('title')} ({item.get('category')} · {item.get('difficulty')})")
+    except Exception as exc:
+      print("Learning path unavailable:", exc)
+    return True
+  if lowered in ("daily",):
+    try:
+      daily = game_systems.daily_challenge_status(state, levels)
+      level = daily.get("level", {})
+      print(f"Daily challenge ({daily.get('date')}): {level.get('id')} - {level.get('title')}")
+      print("Completed today:" if daily.get("completed_today") else "Not completed yet.")
+    except Exception as exc:
+      print("Daily challenge unavailable:", exc)
+    return True
   return False
 
 
@@ -323,7 +353,7 @@ def main():
     state = storage.load_state()
     levels = list_levels()
     print_levels(levels, storage.get_solved_levels(state), state=state)
-    print("Options: enter a level id to open it, 'ach' to list achievements, 'stats' for progress, 'reset-ach' to clear achievements, or 'q' to quit.")
+    print("Options: enter a level id to open it, 'ach' to list achievements, 'stats' for progress, 'path' for recommendations, 'daily' for today's challenge, 'reset-ach' to clear achievements, or 'q' to quit.")
     choice = input("Choose level id (or 'q' to quit): ").strip()
     if choice.lower() in ("q", "quit", "exit"):
       break

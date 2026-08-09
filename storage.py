@@ -47,12 +47,38 @@ def _default_meta():
     }
 
 
+def default_profile():
+    now = _iso_now()
+    return {
+        "display_name": "Learner",
+        "preferences": {
+            "difficulty_preference": "any",
+            "favorite_categories": [],
+            "hint_style": "concise",
+            "show_solved_first": False,
+        },
+        "created_at": now,
+        "updated_at": now,
+    }
+
+
 def default_state():
     return {
         "version": STATE_VERSION,
         "solved": {},
         "achievements": {},
         "meta": _default_meta(),
+        "profile": default_profile(),
+        "game": _default_game(),
+    }
+
+
+def _default_game():
+    return {
+        "xp": 0,
+        "level": 1,
+        "daily": {"last_challenge_date": None, "completed_dates": []},
+        "adventure": {"current_world": None, "unlocked_worlds": [], "campaign_progress": {}},
     }
 
 
@@ -122,6 +148,34 @@ def normalize_state(state):
 
     achievements = normalized.get("achievements", {})
     normalized["achievements"] = achievements if isinstance(achievements, dict) else {}
+
+    profile = normalized.get("profile", {})
+    if not isinstance(profile, dict):
+        profile = {}
+    defaults = default_profile()
+    merged_profile = {**defaults, **profile}
+    prefs = profile.get("preferences", {})
+    if not isinstance(prefs, dict):
+        prefs = {}
+    merged_profile["preferences"] = {**defaults["preferences"], **prefs}
+    merged_profile.setdefault("created_at", defaults["created_at"])
+    merged_profile.setdefault("updated_at", defaults["updated_at"])
+    normalized["profile"] = merged_profile
+
+    game = normalized.get("game", {})
+    if not isinstance(game, dict):
+        game = {}
+    game_defaults = _default_game()
+    merged_game = {**game_defaults, **game}
+    daily = game.get("daily", {})
+    if not isinstance(daily, dict):
+        daily = {}
+    merged_game["daily"] = {**game_defaults["daily"], **daily}
+    adventure = game.get("adventure", {})
+    if not isinstance(adventure, dict):
+        adventure = {}
+    merged_game["adventure"] = {**game_defaults["adventure"], **adventure}
+    normalized["game"] = merged_game
 
     meta = normalized.get("meta", {})
     meta = meta if isinstance(meta, dict) else {}
@@ -314,6 +368,41 @@ def get_solved_levels(state: dict):
 def get_level_attempt_stats(state: dict, level_id: str):
     normalized = normalize_state(state)
     return normalized.get("meta", {}).get("attempts_by_level", {}).get(str(level_id), {})
+
+
+def get_profile(state: dict):
+    return normalize_state(state).get("profile", default_profile())
+
+
+def update_profile(state: dict, *, display_name=None, preferences=None):
+    normalized = normalize_state(state)
+    profile = normalized.setdefault("profile", default_profile())
+    if display_name is not None:
+        profile["display_name"] = str(display_name).strip() or profile.get("display_name", "Learner")
+    if preferences is not None and isinstance(preferences, dict):
+        prefs = profile.setdefault("preferences", {})
+        prefs.update(preferences)
+    profile["updated_at"] = _iso_now()
+    state.update(normalized)
+    return profile
+
+
+def get_game_state(state: dict):
+    return normalize_state(state).get("game", _default_game())
+
+
+def award_xp(state: dict, amount: int):
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    game["xp"] = int(game.get("xp", 0) or 0) + max(0, int(amount))
+    while game["xp"] >= _xp_for_level(game["level"] + 1):
+        game["level"] = int(game.get("level", 1) or 1) + 1
+    state.update(normalized)
+    return game
+
+
+def _xp_for_level(level: int):
+    return max(1, level) * 100
 
 
 def get_progress_summary(state: dict, levels=None):
