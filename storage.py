@@ -1,7 +1,7 @@
 import os
 import json
 import tempfile
-from datetime import datetime
+from datetime import datetime, timezone
 
 
 DEFAULT_STATE_ENV = "LUX_STATE"
@@ -52,7 +52,7 @@ def save_state(state: dict, path: str = None):
 
 def mark_solved(state: dict, level_id: str, attempts: int = 1):
     solved = state.setdefault("solved", {})
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).isoformat()
     entry = solved.get(level_id, {})
     entry.setdefault("first_solved", now)
     entry["last_solved"] = now
