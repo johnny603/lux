@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="grid two" style="align-items:start;">
+      <div>
+        <h2>Leaderboard</h2>
+        <p class="muted">Local progress rankings for solved counts, streaks, and XP style progression.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="muted">Metric</span>
+          <span class="value">{{ metric }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:20px;">
+    {% for entry in board.entries %}
+      <div class="card" style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+          <strong>{{ entry.name }}</strong>
+          <span class="badge">Score {{ entry.score }}</span>
+        </div>
+        <div class="muted-list" style="margin-top:12px;">
+          <span class="chip">Solved {{ entry.solved_count }}</span>
+          <span class="chip">Streak {{ entry.streak }}</span>
+          <span class="chip">XP {{ entry.xp }}</span>
+        </div>
+      </div>
+    {% else %}
+      <p class="muted">No leaderboard entries yet.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

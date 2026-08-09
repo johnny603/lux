@@ -84,8 +84,8 @@ Note: These CLI progress and achievement features are now implemented in the mai
 
 * [x] Flask web frontend layered on top of server.py as the primary browser-based experience
 * [x] Responsive design for desktop and mobile browsers
-* [ ] User profiles for saved progress, preferences, and personalization
-* [ ] Leaderboards for puzzle completion, streaks, and challenge performance
+* [x] User profiles for saved progress, preferences, and personalization
+* [x] Leaderboards for puzzle completion, streaks, and challenge performance
 * [x] Puzzle browser with search, filters, categories, and difficulty views
 * [x] Progress dashboard with completion, streak, and achievement summaries
 
@@ -104,8 +104,8 @@ Note: These CLI progress and achievement features are now implemented in the mai
 * [x] Adaptive hints based on progress and puzzle history in agent.py
 * [x] Multiple AI models with a clear fallback order
 * [x] Local model selection for privacy and offline use
-* [ ] Personalized learning paths based on strengths and gaps
-* [ ] Puzzle generation with AI for new practice content
+* [x] Personalized learning paths based on strengths and gaps
+* [x] Puzzle generation with AI for new practice content
 
 ## Security & Sandboxing
 
@@ -119,7 +119,7 @@ Note: These CLI progress and achievement features are now implemented in the mai
 
 * [x] Stronger Docker restrictions for safer puzzle execution
 * [x] Read/write isolation for ephemeral workspace access
-* [ ] User namespace isolation for reduced host exposure
+* [x] User namespace isolation for reduced host exposure
 * [ ] gVisor support for a stronger runtime boundary
 * [ ] Firecracker support for microVM-based isolation
 * [ ] Secure execution auditing for traceable sandbox activity
@@ -145,40 +145,40 @@ Note: These CLI progress and achievement features are now implemented in the mai
 
 ### Puzzle Adventure Mode
 
-* [ ] Story-driven progression
-* [ ] Unlockable worlds
-* [ ] Puzzle campaigns
-* [ ] Character progression
-* [ ] Achievement badges
-* [ ] Certain puzzles are certain building blocks to advance
+* [x] Story-driven progression
+* [x] Unlockable worlds
+* [x] Puzzle campaigns
+* [x] Character progression
+* [x] Achievement badges
+* [x] Certain puzzles are certain building blocks to advance
 
 ### Running / Puzzle Hybrid
 
-* [ ] Level builder
-* [ ] Real-world activity integration
-* [ ] Daily puzzle challenges
-* [ ] XP and leveling system
-* [ ] Streak tracking
-* [ ] Exploration-based gameplay
-* [ ] Mobile-first experience
+* [x] Level builder
+* [x] Real-world activity integration
+* [x] Daily puzzle challenges
+* [x] XP and leveling system
+* [x] Streak tracking
+* [x] Exploration-based gameplay
+* [x] Mobile-first experience
 
 ## Release Goals
 
 ### v0.1
 
-* [ ] Stable CLI experience
-* [ ] 25+ puzzles
-* [ ] Improved testing
+* [x] Stable CLI experience
+* [x] 25+ puzzles
+* [x] Improved testing
 
 ### v0.5
 
-* [ ] Web UI
-* [ ] User accounts
-* [ ] 100+ puzzles
+* [x] Web UI
+* [x] User accounts
+* [x] 100+ puzzles
 
 ### v1.0
 
 * [ ] Flutter mobile app
-* [ ] Story mode
-* [ ] Advanced sandboxing
+* [x] Story mode
+* [x] Advanced sandboxing
 * [ ] Public launch

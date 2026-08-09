@@ -26,8 +26,11 @@ def evaluate_achievements(state: Dict, levels: Optional[List[Dict]] = None) -> L
 
     Returns a list of newly unlocked achievement dicts.
     """
+    import storage
+
     unlocked = state.setdefault("achievements", {})
-    solved = set(state.get("solved", {}).keys())
+    normalized = storage.normalize_state(state)
+    solved = set(normalized.get("solved", {}).keys())
     newly = []
 
     # simple count-based achievements

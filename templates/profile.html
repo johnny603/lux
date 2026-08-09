@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="grid two" style="align-items:start;">
+      <div>
+        <h2>User Profile</h2>
+        <p class="muted">Saved progress, profile details, and preference settings live here for the web experience.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="muted">Display name</span>
+          <span class="value">{{ profile.display_name }}</span>
+        </div>
+        <div class="stat">
+          <span class="muted">Hint style</span>
+          <span class="value">{{ profile.preferences.hint_style }}</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:20px;">
+    <h3>Profile form</h3>
+    <form method="post" style="margin-top:12px;">
+      <label class="muted" for="display-name">Display name</label>
+      <input id="display-name" name="display_name" value="{{ profile.display_name }}" />
+      <label class="muted" for="difficulty-preference" style="display:block;margin-top:12px;">Difficulty preference</label>
+      <select id="difficulty-preference" name="difficulty_preference">
+        <option value="any" {% if profile.preferences.difficulty_preference == 'any' %}selected{% endif %}>Any</option>
+        <option value="easy" {% if profile.preferences.difficulty_preference == 'easy' %}selected{% endif %}>Easy</option>
+        <option value="medium" {% if profile.preferences.difficulty_preference == 'medium' %}selected{% endif %}>Medium</option>
+        <option value="hard" {% if profile.preferences.difficulty_preference == 'hard' %}selected{% endif %}>Hard</option>
+      </select>
+      <label class="muted" for="hint-style" style="display:block;margin-top:12px;">Hint style</label>
+      <select id="hint-style" name="hint_style">
+        <option value="concise" {% if profile.preferences.hint_style == 'concise' %}selected{% endif %}>Concise</option>
+        <option value="detailed" {% if profile.preferences.hint_style == 'detailed' %}selected{% endif %}>Detailed</option>
+      </select>
+      <label class="muted" for="favorite-categories" style="display:block;margin-top:12px;">Favorite categories</label>
+      <input id="favorite-categories" name="favorite_categories" value="{{ profile.preferences.favorite_categories | join(', ') }}" />
+      <label class="muted" for="show-solved" style="display:block;margin-top:12px;">
+        <input id="show-solved" type="checkbox" name="show_solved_first" {% if profile.preferences.show_solved_first %}checked{% endif %} />
+        Show solved first
+      </label>
+      <button type="submit" style="margin-top:16px;">Save profile</button>
+    </form>
+    {% if message %}
+      <p class="muted" style="margin-top:12px;">{{ message }}</p>
+    {% endif %}
+  </section>
+{% endblock %}
