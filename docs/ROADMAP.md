@@ -150,9 +150,11 @@ Note: These CLI progress and achievement features are now implemented in the mai
 * [ ] Puzzle campaigns
 * [ ] Character progression
 * [ ] Achievement badges
+* [ ] Certain puzzles are certain building blocks to advance
 
 ### Running / Puzzle Hybrid
 
+* [ ] Level builder
 * [ ] Real-world activity integration
 * [ ] Daily puzzle challenges
 * [ ] XP and leveling system
