@@ -79,6 +79,7 @@ Get my approval and format the branch like this:
 * [ ] Better hint generation in agent.py tuned to the current puzzle, progress, and prior attempts
 
 Note: Progress tracking, JSON save/load, and difficulty-surfacing were implemented in branch `roadmap/cli-progress`.
+Achievement system implemented in branch `roadmap/achievements`.
 
 ### Web UI
 

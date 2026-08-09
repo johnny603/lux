@@ -23,13 +23,13 @@ def default_state_path():
 def load_state(path: str = None):
     path = path or default_state_path()
     if not os.path.exists(path):
-        return {"version": 1, "solved": {}, "meta": {}}
+        return {"version": 1, "solved": {}, "achievements": {}, "meta": {}}
     try:
         with open(path, "r") as f:
             return json.load(f)
     except Exception:
         # On any parse/read error, return fresh state to avoid crashing the CLI
-        return {"version": 1, "solved": {}, "meta": {}}
+        return {"version": 1, "solved": {}, "achievements": {}, "meta": {}}
 
 
 def save_state(state: dict, path: str = None):
