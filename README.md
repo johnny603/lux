@@ -1,6 +1,6 @@
 # Interactive Puzzle Server + Agent
 
-![CI](https://github.com/johnny603/lux/actions/workflows/ci.yml/badge.svg) ![CodeQL](https://github.com/johnny603/lux/actions/workflows/codeql.yml/badge.svg)
+![CI (main)](https://github.com/johnny603/lux/actions/workflows/ci.yml/badge.svg) ![CI (achievements)](https://github.com/johnny603/lux/actions/workflows/ci.yml/badge.svg?branch=roadmap/achievements) ![CodeQL](https://github.com/johnny603/lux/actions/workflows/codeql.yml/badge.svg)
 
 ## Overview
 
@@ -46,6 +46,36 @@ python3 server.py
 python3 agent.py
 ```
 Server is hosted in http://127.0.0.1:5050
+
+## CLI Usage & State
+
+The interactive CLI agent stores user progress locally in a JSON state file. By default the state file is located at `~/.lux/state.json`.
+
+Environment variable `LUX_STATE` can override the path to the state file. Example:
+
+```bash
+export LUX_STATE=/tmp/lux-state.json
+python3 agent.py
+```
+
+When you solve a level using the CLI the agent will persist solved history and unlocked achievements to the state file. You can inspect it with:
+
+```bash
+cat ~/.lux/state.json
+```
+
+Sample run (quick):
+
+1. Start the server: `python3 server.py`
+2. Run the agent: `python3 agent.py`
+3. Choose a level id and attempt it. When marked correct, the CLI prints a confirmation and any newly unlocked achievements.
+4. Restart the agent and note that solved levels and achievements are listed in the `Available levels` output.
+
+If your CI badge for a branch shows failing, ensure you push the branch and open the PR so GitHub Actions can run; local tests can be run with:
+
+```bash
+PYTHONPATH=. pytest -q
+```
 
 ## Notes and security
 
