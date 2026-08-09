@@ -1,6 +1,8 @@
 # Lux Roadmap
 
 > Long-term vision: Build Lux into a puzzle-based learning platform that combines Linux, programming, cybersecurity, and AI-assisted learning with a modern cross-platform experience.
+>
+> Roadmap status: current implementation centers on server.py and agent.py, with JSON state for progress and a Flutter/Dart path planned for mobile support.
 
 If you want to work on a section of the roadmap
 Get my approval and format the branch like this:
@@ -70,38 +72,41 @@ Get my approval and format the branch like this:
 
 ### CLI Improvements
 
-* [ ] Progress tracking
-* [ ] Achievement system
-* [ ] Save/load progress
-* [ ] Difficulty ratings
-* [ ] Better hint generation
+* [ ] Progress tracking in agent.py with per-level completion, streaks, and solved-history summaries
+* [ ] Achievement system with unlockable milestones and badge summaries tied to completed levels
+* [ ] Save/load progress using JSON state files so the CLI can restore solved levels and user state
+* [ ] Difficulty ratings from server.py surfaced in the CLI and used for puzzle ordering
+* [ ] Better hint generation in agent.py tuned to the current puzzle, progress, and prior attempts
+
+Note: Progress tracking, JSON save/load, and difficulty-surfacing were implemented in branch `roadmap/cli-progress`.
+Achievement system implemented in branch `roadmap/achievements`.
 
 ### Web UI
 
-* [ ] Flask web frontend
-* [ ] Responsive design
-* [ ] User profiles
-* [ ] Leaderboards
-* [ ] Puzzle browser
-* [ ] Progress dashboard
+* [ ] Flask web frontend layered on top of server.py as the primary browser-based experience
+* [ ] Responsive design for desktop and mobile browsers
+* [ ] User profiles for saved progress, preferences, and personalization
+* [ ] Leaderboards for puzzle completion, streaks, and challenge performance
+* [ ] Puzzle browser with search, filters, categories, and difficulty views
+* [ ] Progress dashboard with completion, streak, and achievement summaries
 
 ### Mobile App
 
-* [ ] Flutter prototype
-* [ ] Shared API backend
-* [ ] iOS support
-* [ ] Android support
-* [ ] Offline puzzle packs
-* [ ] Push notifications
+* [ ] Flutter/Dart prototype that reuses the same puzzle API exposed by server.py
+* [ ] Shared API backend for authentication, progress sync, puzzle delivery, and submissions
+* [ ] iOS support through the Flutter client
+* [ ] Android support through the Flutter client
+* [ ] Offline puzzle packs for limited-connectivity play
+* [ ] Push notifications for streaks, reminders, and new content
 
 ## AI Features
 
 * [x] Ollama hint generation
-* [ ] Adaptive hints based on progress
-* [ ] Multiple AI models
-* [ ] Local model selection
-* [ ] Personalized learning paths
-* [ ] Puzzle generation with AI
+* [ ] Adaptive hints based on progress and puzzle history in agent.py
+* [ ] Multiple AI models with a clear fallback order
+* [ ] Local model selection for privacy and offline use
+* [ ] Personalized learning paths based on strengths and gaps
+* [ ] Puzzle generation with AI for new practice content
 
 ## Security & Sandboxing
 
@@ -113,12 +118,12 @@ Get my approval and format the branch like this:
 
 ### Planned
 
-* [ ] Stronger Docker restrictions
-* [ ] Read/write isolation
-* [ ] User namespace isolation
-* [ ] gVisor support
-* [ ] Firecracker support
-* [ ] Secure execution auditing
+* [ ] Stronger Docker restrictions for safer puzzle execution
+* [ ] Read/write isolation for ephemeral workspace access
+* [ ] User namespace isolation for reduced host exposure
+* [ ] gVisor support for a stronger runtime boundary
+* [ ] Firecracker support for microVM-based isolation
+* [ ] Secure execution auditing for traceable sandbox activity
 
 ## Testing
 
