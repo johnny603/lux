@@ -6,6 +6,7 @@ import requests
 from requests.exceptions import RequestException
 import storage
 import cli
+import achievements
 
 def list_levels():
   try:
@@ -69,6 +70,16 @@ def print_levels(levels, solved_set=None):
   ordered = cli.sort_levels(levels, solved_set)
   for lvl in ordered:
     print("  ", cli.format_level_line(lvl, solved_set))
+  # show achievement summary
+  try:
+    state = storage.load_state()
+    ach = state.get("achievements", {})
+    if ach:
+      print("\nAchievements:")
+      for k, v in ach.items():
+        print(f"  - {v.get('title','?')} ({k}) unlocked: {v.get('unlocked_at')}")
+  except Exception:
+    pass
 
 
 def read_files_from_paths():
@@ -109,6 +120,21 @@ def handle_attempt(choice, lvl):
     try:
       state = storage.load_state()
       storage.mark_solved(state, choice)
+      # evaluate achievements
+      try:
+        levels = []
+        try:
+          levels = list_levels()
+        except Exception:
+          levels = []
+        newly = achievements.evaluate_achievements(state, levels)
+        if newly:
+          print("New achievements unlocked:")
+          for a in newly:
+            print(f"  - {a.get('title')} ({a.get('id')})")
+      except Exception:
+        newly = []
+
       storage.save_state(state)
     except Exception:
       # non-fatal: continue
@@ -147,9 +173,36 @@ def main():
   print("Interactive Puzzle Agent — connect to the puzzle server and request hints.")
   while True:
     print_levels(list_levels())
+    print("Options: enter a level id to open it, 'ach' to list achievements, 'reset-ach' to clear achievements, or 'q' to quit.")
     choice = input("Choose level id (or 'q' to quit): ").strip()
     if choice.lower() in ("q", "quit", "exit"):
       break
+    if choice.lower() in ("ach", "achievements"):
+      try:
+        state = storage.load_state()
+        ach = state.get("achievements", {})
+        if not ach:
+          print("No achievements unlocked yet.")
+        else:
+          print("Achievements:")
+          for k, v in ach.items():
+            print(f"  - {v.get('title','?')} ({k}) unlocked: {v.get('unlocked_at')}")
+      except Exception as e:
+        print("Failed to read achievements:", e)
+      continue
+    if choice.lower() in ("reset-ach", "reset-achievements"):
+      confirm = input("Are you sure you want to reset all achievements? type 'yes' to confirm: ")
+      if confirm.strip().lower() == "yes":
+        try:
+          state = storage.load_state()
+          state["achievements"] = {}
+          storage.save_state(state)
+          print("Achievements cleared.")
+        except Exception as e:
+          print("Failed to reset achievements:", e)
+      else:
+        print("Reset cancelled.")
+      continue
     handle_level(choice)
 
 
