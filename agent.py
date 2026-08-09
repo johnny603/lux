@@ -2,9 +2,10 @@ import os
 
 SERVER = os.getenv("PUZZLE_SERVER", "http://127.0.0.1:5050")
 
-import ollama
 import requests
 from requests.exceptions import RequestException
+import storage
+import cli
 
 def list_levels():
   try:
@@ -54,17 +55,20 @@ def ask_hint_via_ollama(level):
     "Do NOT reveal the flag or exact command; avoid giving full step-by-step answers. "
   )
   messages = [{"role": "user", "content": prompt}]
+  try:
+    import ollama
+  except Exception as e:
+    raise RuntimeError("Ollama is not available: " + str(e))
+
   res = ollama.chat(model="llama3.2", messages=messages)
   return res.message.content
 
 
-def print_levels(levels):
+def print_levels(levels, solved_set=None):
   print("\nAvailable levels:")
-  for lvl in levels:
-    tags = ", ".join(lvl.get("tags", []))
-    print(f"  {lvl['id']}: {lvl['title']} [{lvl.get('category', 'uncategorized')} | {lvl.get('difficulty', 'unknown')}]")
-    if tags:
-      print(f"      tags: {tags}")
+  ordered = cli.sort_levels(levels, solved_set)
+  for lvl in ordered:
+    print("  ", cli.format_level_line(lvl, solved_set))
 
 
 def read_files_from_paths():
@@ -102,6 +106,13 @@ def handle_attempt(choice, lvl):
       return False
   if res.get("correct"):
     print("Correct! Level solved.")
+    try:
+      state = storage.load_state()
+      storage.mark_solved(state, choice)
+      storage.save_state(state)
+    except Exception:
+      # non-fatal: continue
+      pass
     return True
   print("Incorrect or tests failed.")
   if res.get("output"):
