@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    {% if result.ok %}
+      <div class="status ok">
+        <h2>Submission accepted</h2>
+        <p>Your attempt was processed successfully.</p>
+      </div>
+    {% else %}
+      <div class="status error">
+        <h2>Submission rejected</h2>
+        <p>{{ result.error or "The puzzle validation failed." }}</p>
+      </div>
+    {% endif %}
+
+    <div class="grid two">
+      <div class="card">
+        <strong>{{ puzzle.title }}</strong>
+        <span class="muted">{{ puzzle.category }} · {{ puzzle.difficulty|title }}</span>
+        <span class="muted">Validator: {{ puzzle.validator }}</span>
+      </div>
+      <div class="card">
+        <strong>Status code</strong>
+        <span class="muted">{{ status }}</span>
+      </div>
+    </div>
+
+    <div style="margin-top:16px;">
+      <a class="button" href="/puzzles/{{ puzzle.id }}">Back to puzzle</a>
+      <a class="button secondary" href="/web" style="margin-left:8px;">Back to browser</a>
+    </div>
+  </section>
+{% endblock %}

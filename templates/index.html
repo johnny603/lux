@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="grid two" style="align-items: start;">
+      <div>
+        <h2>Puzzle Browser</h2>
+        <p class="muted">Search and filter puzzles by category and difficulty. The same catalog powers the CLI and API.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="muted">Solved</span>
+          <span class="value">{{ progress.solved_count }}</span>
+        </div>
+        <div class="stat">
+          <span class="muted">Streak</span>
+          <span class="value">{{ progress.current_streak }}</span>
+        </div>
+        <div class="stat">
+          <span class="muted">Best</span>
+          <span class="value">{{ progress.longest_streak }}</span>
+        </div>
+      </div>
+    </div>
+
+    <form class="filters" method="get">
+      <label for="search-query" class="muted">Search</label>
+      <input id="search-query" type="search" name="q" value="{{ search_query }}" placeholder="Search puzzles" />
+      <label for="category-filter" class="muted">Category</label>
+      <select id="category-filter" name="category">
+        <option value="">All categories</option>
+        {% for category in categories %}
+          <option value="{{ category|lower }}" {% if selected_category == category|lower %}selected{% endif %}>{{ category }}</option>
+        {% endfor %}
+      </select>
+      <label for="difficulty-filter" class="muted">Difficulty</label>
+      <select id="difficulty-filter" name="difficulty">
+        <option value="">All difficulties</option>
+        {% for item in ["easy", "medium", "hard"] %}
+          <option value="{{ item }}" {% if selected_difficulty == item %}selected{% endif %}>{{ item|title }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit">Filter</button>
+    </form>
+
+    <div class="grid three">
+      {% for level in levels %}
+        <a class="card" href="/puzzles/{{ level.id }}">
+          <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start;">
+            <div>
+              <h3>{{ level.title }}</h3>
+              <p class="muted" style="margin-bottom:0;">{{ level.description }}</p>
+            </div>
+            {% if level.id in solved %}
+              <span class="badge success">Solved</span>
+            {% else %}
+              <span class="badge">Open</span>
+            {% endif %}
+          </div>
+          <div class="muted-list">
+            <span class="chip">{{ level.category }}</span>
+            <span class="chip">{{ level.difficulty|title }}</span>
+            {% for tag in level.tags[:3] %}
+              <span class="chip">{{ tag }}</span>
+            {% endfor %}
+          </div>
+        </a>
+      {% else %}
+        <div class="card">
+          <p>No puzzles matched the current filters.</p>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}

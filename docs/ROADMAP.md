@@ -72,23 +72,22 @@ Get my approval and format the branch like this:
 
 ### CLI Improvements
 
-* [ ] Progress tracking in agent.py with per-level completion, streaks, and solved-history summaries
-* [ ] Achievement system with unlockable milestones and badge summaries tied to completed levels
-* [ ] Save/load progress using JSON state files so the CLI can restore solved levels and user state
-* [ ] Difficulty ratings from server.py surfaced in the CLI and used for puzzle ordering
-* [ ] Better hint generation in agent.py tuned to the current puzzle, progress, and prior attempts
+* [x] Progress tracking in agent.py with per-level completion, streaks, and solved-history summaries
+* [x] Achievement system with unlockable milestones and badge summaries tied to completed levels
+* [x] Save/load progress using JSON state files so the CLI can restore solved levels and user state
+* [x] Difficulty ratings from server.py surfaced in the CLI and used for puzzle ordering
+* [x] Better hint generation in agent.py tuned to the current puzzle, progress, and prior attempts
 
-Note: Progress tracking, JSON save/load, and difficulty-surfacing were implemented in branch `roadmap/cli-progress`.
-Achievement system implemented in branch `roadmap/achievements`.
+Note: These CLI progress and achievement features are now implemented in the main codebase with backward-compatible state migration.
 
 ### Web UI
 
-* [ ] Flask web frontend layered on top of server.py as the primary browser-based experience
-* [ ] Responsive design for desktop and mobile browsers
+* [x] Flask web frontend layered on top of server.py as the primary browser-based experience
+* [x] Responsive design for desktop and mobile browsers
 * [ ] User profiles for saved progress, preferences, and personalization
 * [ ] Leaderboards for puzzle completion, streaks, and challenge performance
-* [ ] Puzzle browser with search, filters, categories, and difficulty views
-* [ ] Progress dashboard with completion, streak, and achievement summaries
+* [x] Puzzle browser with search, filters, categories, and difficulty views
+* [x] Progress dashboard with completion, streak, and achievement summaries
 
 ### Mobile App
 
@@ -102,9 +101,9 @@ Achievement system implemented in branch `roadmap/achievements`.
 ## AI Features
 
 * [x] Ollama hint generation
-* [ ] Adaptive hints based on progress and puzzle history in agent.py
-* [ ] Multiple AI models with a clear fallback order
-* [ ] Local model selection for privacy and offline use
+* [x] Adaptive hints based on progress and puzzle history in agent.py
+* [x] Multiple AI models with a clear fallback order
+* [x] Local model selection for privacy and offline use
 * [ ] Personalized learning paths based on strengths and gaps
 * [ ] Puzzle generation with AI for new practice content
 
@@ -118,8 +117,8 @@ Achievement system implemented in branch `roadmap/achievements`.
 
 ### Planned
 
-* [ ] Stronger Docker restrictions for safer puzzle execution
-* [ ] Read/write isolation for ephemeral workspace access
+* [x] Stronger Docker restrictions for safer puzzle execution
+* [x] Read/write isolation for ephemeral workspace access
 * [ ] User namespace isolation for reduced host exposure
 * [ ] gVisor support for a stronger runtime boundary
 * [ ] Firecracker support for microVM-based isolation
@@ -128,10 +127,10 @@ Achievement system implemented in branch `roadmap/achievements`.
 ## Testing
 
 * [x] Smoke tests
-* [ ] API integration tests
-* [ ] Docker execution tests
-* [ ] Security tests
-* [ ] End-to-end testing
+* [x] API integration tests
+* [x] Docker execution tests
+* [x] Security tests
+* [x] End-to-end testing
 
 ## Open Source Community
 

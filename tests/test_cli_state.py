@@ -1,6 +1,7 @@
 import os
 import tempfile
 import json
+from datetime import datetime, timezone
 
 import storage
 import cli
@@ -11,7 +12,15 @@ def test_storage_roundtrip(tmp_path):
     state = {"version": 1, "solved": {}}
     storage.save_state(state, str(path))
     loaded = storage.load_state(str(path))
-    assert loaded.get("version") == 1
+    assert loaded.get("version") >= 2
+
+
+def test_loads_legacy_state_format(tmp_path):
+    path = tmp_path / "state.json"
+    path.write_text(json.dumps({"solved": ["1", "2"], "achievements": {}}))
+    loaded = storage.load_state(str(path))
+    assert loaded["version"] >= 2
+    assert set(loaded["solved"].keys()) == {"1", "2"}
 
 
 def test_mark_solved_and_get(tmp_path):
@@ -33,6 +42,19 @@ def test_sort_levels_respects_difficulty_and_solved():
     ]
     solved = {"2"}
     ordered = cli.sort_levels(levels, solved)
-    # unsolved easy/medium/hard first (easy then medium then hard), then solved at end
     assert ordered[0]["id"] == "1"
     assert ordered[-1]["id"] == "2"
+
+
+def test_progress_summary_tracks_streak(tmp_path):
+    state = storage.default_state()
+    storage.mark_solved(state, "1", at="2026-08-06T10:00:00+00:00")
+    storage.mark_solved(state, "2", at="2026-08-07T10:00:00+00:00")
+    storage.mark_solved(state, "3", at="2026-08-07T11:00:00+00:00")
+
+    summary = storage.get_progress_summary(state, [{"id": "1"}, {"id": "2"}, {"id": "3"}, {"id": "4"}])
+
+    assert summary["solved_count"] == 3
+    assert summary["current_streak"] == 2
+    assert summary["longest_streak"] == 2
+    assert summary["percent_complete"] == 75.0

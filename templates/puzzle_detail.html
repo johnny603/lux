@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div style="display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;">
+      <div>
+        <h2>{{ puzzle.title }}</h2>
+        <p class="muted">{{ puzzle.description }}</p>
+        <div class="muted-list">
+          <span class="chip">{{ puzzle.category }}</span>
+          <span class="chip">{{ puzzle.difficulty|title }}</span>
+          <span class="chip">{{ puzzle.validator }}</span>
+          {% for tag in puzzle.tags %}
+            <span class="chip">{{ tag }}</span>
+          {% endfor %}
+        </div>
+      </div>
+      {% if solved %}
+        <span class="badge success">Solved</span>
+      {% else %}
+        <span class="badge warning">Unsolved</span>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-top:20px;">
+    <div class="panel alt">
+      <h3>Submission</h3>
+      <p class="muted">Use the same validation path as the CLI. Script puzzles accept uploaded source files.</p>
+      <form method="post" action="/puzzles/{{ puzzle.id }}/submit" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}" />
+        <label class="muted" for="puzzle-answer">Answer</label>
+        <input id="puzzle-answer" type="text" name="answer" placeholder="Enter an answer or command" />
+        <label class="muted" for="puzzle-files" style="display:block;margin-top:12px;">Source files</label>
+        <input id="puzzle-files" type="file" name="files" multiple />
+        <button type="submit" style="margin-top:12px;">Submit</button>
+      </form>
+      <p class="muted" style="margin-top:12px;">Hint preview: {{ puzzle.hint }}</p>
+    </div>
+
+    <div class="panel alt">
+      <h3>Attempt history</h3>
+      <div class="stats" style="margin-top:12px;">
+        <div class="stat"><span class="muted">Attempts</span><span class="value">{{ stats.attempts or 0 }}</span></div>
+        <div class="stat"><span class="muted">Incorrect</span><span class="value">{{ stats.incorrect or 0 }}</span></div>
+        <div class="stat"><span class="muted">Last</span><span class="value">{{ stats.last_outcome or "—" }}</span></div>
+      </div>
+      <p class="muted" style="margin-top:12px;">Progress snapshot: {{ progress.solved_count }} solved, streak {{ progress.current_streak }}, best {{ progress.longest_streak }}.</p>
+    </div>
+  </section>
+{% endblock %}

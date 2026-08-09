@@ -6,46 +6,66 @@
 
 - A minimal Flask-based puzzle server exposing simple levels and a validation endpoint.
 - An interactive CLI agent that lists levels, fetches descriptions, accepts attempts, and asks Ollama for hints.
+- A lightweight Flask web UI with puzzle browsing, filtering, progress tracking, and puzzle detail pages.
+- Versioned API routes under `/api/v1/...` for puzzle discovery, progress, achievements, and future clients.
 
 ## Setup
 
 - Python 3.10+
 - Docker installed and running (required for script-based puzzles)
 - Ollama installed and running locally
-- Model llama3.2 pulled
+- Model llama3.2 pulled, or another local model selected through `LUX_OLLAMA_MODEL` / `LUX_OLLAMA_MODELS`
 
-It is recomended to use a virtual environment
-```
+It is recommended to use a virtual environment:
+
+```bash
 python3 -m venv venv
 source venv/bin/activate
 ```
 
+## Run
+
 1. Install dependencies:
 
-```
-python3 -m pip install -r requirements.txt
-```
+   ```bash
+   python3 -m pip install -r requirements.txt
+   ```
 
-## Run
-2. Start Ollama service
-```
-ollama serve
-ollama pull llama3.2
-ollama list
-```
+2. Start Ollama service:
+
+   ```bash
+   ollama serve
+   ollama pull llama3.2
+   ollama list
+   ```
 
 3. Start the server:
 
-```
-python3 server.py
-```
+   ```bash
+   python3 server.py
+   ```
 
 4. In another terminal, run the agent:
 
-```
-python3 agent.py
-```
-Server is hosted in http://127.0.0.1:5050
+
+   ```bash
+   python3 agent.py
+   ```
+
+   Server is hosted at [http://127.0.0.1:5050](http://127.0.0.1:5050).
+
+5. Open the web UI in a browser:
+
+   ```bash
+   http://127.0.0.1:5050/web
+   ```
+
+Optional API endpoints:
+
+- `/api/v1/levels`
+- `/api/v1/level/<id>`
+- `/api/v1/progress`
+- `/api/v1/achievements`
 
 ## CLI Usage & State
 
@@ -87,8 +107,10 @@ PYTHONPATH=. pytest -q
 ## Design
 
 - The server exposes `/levels`, `/level/<id>`, and `/submit`.
+- The server also exposes `/api/v1/levels`, `/api/v1/level/<id>`, `/api/v1/progress`, `/api/v1/achievements`, `/web`, `/dashboard`, and `/puzzles/<id>`.
 - For script-based levels, `POST /submit` accepts JSON `{ "level_id": "5", "files": { "answer.c": "<source>" } }` and returns test output.
 - The agent uses Ollama (`llama3.2`) to produce contextual hints; it instructs the model not to reveal flags.
+- Hint models can be configured with `LUX_OLLAMA_MODEL` for a preferred local model and `LUX_OLLAMA_MODELS` for a comma-separated fallback list.
 
 ## Current Puzzle Catalog
 

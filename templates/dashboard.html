@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="grid two" style="align-items:start;">
+      <div>
+        <h2>Progress Dashboard</h2>
+        <p class="muted">A single place to review solved puzzles, streaks, achievements, and profile preferences.</p>
+        <div class="muted-list" style="margin-top:12px;">
+          <span class="chip">{{ profile.display_name }}</span>
+          <span class="chip">{{ total_levels }} total puzzles</span>
+        </div>
+      </div>
+      <div class="stats">
+        <div class="stat"><span class="muted">Solved</span><span class="value">{{ progress.solved_count }}</span></div>
+        <div class="stat"><span class="muted">Complete</span><span class="value">{{ progress.percent_complete or 0 }}%</span></div>
+        <div class="stat"><span class="muted">Attempts</span><span class="value">{{ progress.total_attempts }}</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid two" style="margin-top:20px;">
+    <div class="panel alt">
+      <h3>Recent solves</h3>
+      <div class="grid" style="margin-top:12px;">
+        {% for level in recent_levels %}
+          <a class="card" href="/puzzles/{{ level.id }}">
+            <strong>{{ level.title }}</strong>
+            <span class="muted">{{ level.category }} · {{ level.difficulty|title }}</span>
+          </a>
+        {% else %}
+          <p class="muted">No solves recorded yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="panel alt">
+      <h3>Achievements</h3>
+      <div class="grid" style="margin-top:12px;">
+        {% for achievement_id, achievement in achievements.items() %}
+          <div class="card">
+            <strong>{{ achievement.title }}</strong>
+            <span class="muted">{{ achievement.description }}</span>
+            <span class="badge success">Unlocked</span>
+          </div>
+        {% else %}
+          <p class="muted">No achievements unlocked yet.</p>
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" style="margin-top:20px;">
+    <h3>Preferences and profile structure</h3>
+    <p class="muted">This page already reads from a profile object so future account and preference features can reuse the same structure.</p>
+    <pre style="white-space:pre-wrap;background:rgba(255,255,255,0.03);padding:16px;border-radius:16px;border:1px solid var(--border);">{{ profile | tojson(indent=2) }}</pre>
+  </section>
+{% endblock %}

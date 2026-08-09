@@ -1,11 +1,17 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, render_template
+from flask_wtf import CSRFProtect
 from datetime import datetime
 import subprocess
 import tempfile
 import os
 import shutil
+import storage
 
 app = Flask(__name__)
+app.secret_key = os.getenv("LUX_SECRET_KEY") or os.urandom(32).hex()
+app.config["WTF_CSRF_SECRET_KEY"] = os.getenv("LUX_CSRF_SECRET_KEY") or os.urandom(32).hex()
+ERROR_NOT_FOUND = "not found"
+csrf = CSRFProtect(app)
 
 PUZZLES = [
     {
@@ -308,6 +314,46 @@ def get_puzzle(pid):
     return next((p for p in PUZZLES if p["id"] == pid), None)
 
 
+def catalog_levels():
+    return [
+        {
+            "id": p["id"],
+            "title": p["title"],
+            "description": p["description"],
+            "hint": p["hint"],
+            "validator": p.get("validator", "equals"),
+            "category": p["category"],
+            "difficulty": p["difficulty"],
+            "tags": p["tags"],
+        }
+        for p in PUZZLES
+    ]
+
+
+def puzzle_summary(puzzle):
+    return {
+        "id": puzzle["id"],
+        "title": puzzle["title"],
+        "description": puzzle["description"],
+        "hint": puzzle["hint"],
+        "validator": puzzle.get("validator", "equals"),
+        "category": puzzle["category"],
+        "difficulty": puzzle["difficulty"],
+        "tags": puzzle["tags"],
+    }
+
+
+def _submission_response(puzzle, attempt, files):
+    result = validate(puzzle, attempt, files)
+    if isinstance(result, tuple):
+        payload = result[0].get_json()
+        status = result[1]
+    else:
+        payload = result.get_json()
+        status = result.status_code
+    return payload, status
+
+
 def response(ok=True, **kwargs):
     return jsonify({"ok": ok, **kwargs})
 
@@ -340,21 +386,13 @@ def levels():
 def level(pid):
     p = get_puzzle(pid)
     if not p:
-        return response(False, error="not found"), 404
+        return response(False, error=ERROR_NOT_FOUND), 404
 
-    return jsonify({
-        "id": p["id"],
-        "title": p["title"],
-        "description": p["description"],
-        "hint": p["hint"],
-        "validator": p.get("validator", "equals"),
-        "category": p["category"],
-        "difficulty": p["difficulty"],
-        "tags": p["tags"],
-    })
+    return jsonify(puzzle_summary(p))
 
 
 @app.route("/submit", methods=["POST"])
+@csrf.exempt
 def submit():
     data = request.json or {}
 
@@ -370,6 +408,115 @@ def submit():
         return response(False, error="invalid level"), 404
 
     return validate(puzzle, attempt, files)
+
+
+@app.route("/api/v1/levels", methods=["GET"])
+def api_levels():
+    return jsonify(catalog_levels())
+
+
+@app.route("/api/v1/level/<pid>", methods=["GET"])
+def api_level(pid):
+    return level(pid)
+
+
+@app.route("/api/v1/progress", methods=["GET"])
+def api_progress():
+    state = storage.load_state()
+    return jsonify({
+        "progress": storage.get_progress_summary(state, catalog_levels()),
+        "solved": list(storage.get_solved_levels(state)),
+        "achievements": state.get("achievements", {}),
+        "profile": state.get("profile", {"display_name": "Learner", "preferences": {}}),
+    })
+
+
+@app.route("/api/v1/achievements", methods=["GET"])
+def api_achievements():
+    state = storage.load_state()
+    return jsonify(state.get("achievements", {}))
+
+
+@app.route("/web", methods=["GET"])
+@app.route("/puzzles", methods=["GET"])
+def web_puzzles():
+    levels = catalog_levels()
+    query = (request.args.get("q") or "").strip().lower()
+    category = (request.args.get("category") or "").strip().lower()
+    difficulty = (request.args.get("difficulty") or "").strip().lower()
+    state = storage.load_state()
+    solved = storage.get_solved_levels(state)
+
+    if query:
+        levels = [lvl for lvl in levels if query in " ".join(str(lvl.get(k, "")) for k in ("id", "title", "description", "category", "difficulty")).lower()]
+    if category:
+        levels = [lvl for lvl in levels if lvl.get("category", "").lower() == category]
+    if difficulty:
+        levels = [lvl for lvl in levels if lvl.get("difficulty", "").lower() == difficulty]
+
+    return render_template(
+        "index.html",
+        levels=levels,
+        solved=solved,
+        progress=storage.get_progress_summary(state, catalog_levels()),
+        categories=sorted({lvl["category"] for lvl in catalog_levels()}),
+        selected_category=category,
+        selected_difficulty=difficulty,
+        search_query=request.args.get("q", ""),
+        profile=state.get("profile", {"display_name": "Learner", "preferences": {}}),
+    )
+
+
+@app.route("/dashboard", methods=["GET"])
+def dashboard():
+    state = storage.load_state()
+    levels = catalog_levels()
+    summary = storage.get_progress_summary(state, levels)
+    solved = storage.get_solved_levels(state)
+    recent_levels = [get_puzzle(level_id) for level_id in state.get("meta", {}).get("recent_solved", []) if get_puzzle(level_id)]
+    return render_template(
+        "dashboard.html",
+        progress=summary,
+        solved=solved,
+        achievements=state.get("achievements", {}),
+        profile=state.get("profile", {"display_name": "Learner", "preferences": {}}),
+        recent_levels=recent_levels,
+        total_levels=len(levels),
+    )
+
+
+@app.route("/puzzles/<pid>", methods=["GET"])
+def web_puzzle_detail(pid):
+    puzzle = get_puzzle(pid)
+    if not puzzle:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    stats = storage.get_level_attempt_stats(state, pid)
+    return render_template(
+        "puzzle_detail.html",
+        puzzle=puzzle_summary(puzzle),
+        solved=pid in storage.get_solved_levels(state),
+        stats=stats,
+        progress=storage.get_progress_summary(state, catalog_levels()),
+    )
+
+
+@app.route("/puzzles/<pid>/submit", methods=["POST"])
+def web_submit(pid):
+    puzzle = get_puzzle(pid)
+    if not puzzle:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    attempt = (request.form.get("answer") or "").strip()
+    files = {}
+    for upload in request.files.getlist("files"):
+        if upload and upload.filename:
+            files[upload.filename] = upload.read().decode(errors="ignore")
+    if puzzle.get("validator") == "script" and not files:
+        return render_template("result.html", puzzle=puzzle_summary(puzzle), result={"ok": False, "error": "upload at least one source file"}, status=400)
+
+    payload, status = _submission_response(puzzle, attempt, files)
+    return render_template("result.html", puzzle=puzzle_summary(puzzle), result=payload, status=status)
 
 
 
@@ -394,33 +541,48 @@ def validate(puzzle, attempt, files):
     return response(False, error="unsupported validator"), 400
 
 
+def build_docker_command(source_dir):
+    return [
+        "docker", "run", "--rm",
+        "--network", "none",
+        "--read-only",
+        "--cap-drop", "ALL",
+        "--security-opt", "no-new-privileges",
+        "--security-opt", "seccomp=default",
+        "--pids-limit", "64",
+        "--memory", "256m",
+        "--cpus", "0.5",
+        "--user", "65534:65534",
+        "--ipc", "none",
+        "--tmpfs", "/tmp:rw,nosuid,nodev,noexec,size=64m",
+        "--tmpfs", "/work:rw,nosuid,nodev,noexec,size=64m",
+        "-v", f"{source_dir}:/src:ro",
+        "gcc:12",
+        "/bin/sh", "-lc",
+        "cp -R /src/. /work/ && cd /work && sh ./run.sh",
+    ]
+
+
+def _materialize_sandbox(source_dir, files, script):
+    for name, content in files.items():
+        path = os.path.join(source_dir, os.path.basename(name))
+        with open(path, "w") as f:
+            f.write(content)
+
+    runner = os.path.join(source_dir, "run.sh")
+    with open(runner, "w") as f:
+        f.write("#!/bin/sh\nset -e\n")
+        f.write(script + "\n")
+
+    os.chmod(runner, 0o700)
+
 
 def run_docker(files, script):
     tmp = tempfile.mkdtemp(prefix="puzzle_")
 
     try:
-        for name, content in files.items():
-            path = os.path.join(tmp, os.path.basename(name))
-            with open(path, "w") as f:
-                f.write(content)
-
-        runner = os.path.join(tmp, "run.sh")
-        with open(runner, "w") as f:
-            f.write("#!/bin/sh\nset -e\n")
-            f.write(script + "\n")
-
-        os.chmod(runner, 0o700)
-
-        cmd = [
-            "docker", "run", "--rm",
-            "-v", f"{tmp}:/work:ro",
-            "-w", "/work",
-            "--network", "none",
-            "--memory", "256m",
-            "--cpus", "0.5",
-            "gcc:12",
-            "/bin/sh", "-c", "./run.sh"
-        ]
+        _materialize_sandbox(tmp, files, script)
+        cmd = build_docker_command(tmp)
 
         proc = subprocess.run(cmd, capture_output=True, timeout=15)
 
