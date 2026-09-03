@@ -19,7 +19,7 @@ EXECUTION_TIMEOUT = 15
 def _record_audit(event):
     try:
         sandbox_audit.record_execution(event)
-    except OSError:
+    except Exception:
         pass
 
 
@@ -71,14 +71,17 @@ class DockerSandbox:
             raise ValueError("filename must stay inside the sandbox")
         return str(target)
 
-    def run(self, files: Dict[str, str], script: str) -> Dict[str, Optional[object]]:
-        if not isinstance(files, dict) or len(files) > MAX_FILES:
-            raise ValueError(f"at most {MAX_FILES} files are allowed")
-        if not isinstance(script, str) or len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
-            raise ValueError("sandbox script is too large")
-        workdir = tempfile.mkdtemp(prefix="lux-sandbox-")
+    def run(self, files: Dict[str, str], script: str, puzzle_id: Optional[str] = None) -> Dict[str, Optional[object]]:
         job_id = str(uuid.uuid4())
         started = time.monotonic()
+        if not isinstance(files, dict) or len(files) > MAX_FILES:
+            _record_audit({"job_id": job_id, "puzzle_id": puzzle_id, "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"), "duration_ms": 0, "exit_code": None, "timed_out": False, "docker_failed": False, "result": "input_validation_failure"})
+            raise ValueError(f"at most {MAX_FILES} files are allowed")
+        if not isinstance(script, str) or len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
+            _record_audit({"job_id": job_id, "puzzle_id": puzzle_id, "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"), "duration_ms": 0, "exit_code": None, "timed_out": False, "docker_failed": False, "result": "input_validation_failure"})
+            raise ValueError("sandbox script is too large")
+        workdir = tempfile.mkdtemp(prefix="lux-sandbox-")
+        event = {"job_id": job_id, "puzzle_id": puzzle_id, "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"), "exit_code": None, "timed_out": False, "docker_failed": False, "passed": False, "result": "exception"}
         try:
             for filename, content in files.items():
                 target = self._safe_target(workdir, filename)
@@ -102,16 +105,7 @@ class DockerSandbox:
                     "command": cmd,
                     "timed_out": True,
                 }
-                _record_audit(
-                    {
-                        "job_id": job_id,
-                        "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                        "duration_ms": round((time.monotonic() - started) * 1000),
-                        "exit_code": None,
-                        "timed_out": True,
-                        "passed": False,
-                    }
-                )
+                event.update({"timed_out": True, "result": "timeout", "passed": False})
                 return result
             stdout = completed.stdout.decode("utf-8", errors="ignore")
             stderr = completed.stderr.decode("utf-8", errors="ignore")
@@ -123,18 +117,12 @@ class DockerSandbox:
                 "command": cmd,
                 "timed_out": timed_out,
             }
-            _record_audit(
-                {
-                    "job_id": job_id,
-                    "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                    "duration_ms": round((time.monotonic() - started) * 1000),
-                    "exit_code": completed.returncode,
-                    "timed_out": timed_out,
-                    "passed": result["passed"],
-                }
-            )
+            docker_failed = completed.returncode == 125 or b"docker: Error" in completed.stderr
+            event.update({"exit_code": completed.returncode, "docker_failed": docker_failed, "passed": result["passed"], "result": "docker_failure" if docker_failed else ("success" if result["passed"] else "nonzero_exit")})
             return result
         finally:
+            event["duration_ms"] = round((time.monotonic() - started) * 1000)
+            _record_audit(event)
             shutil.rmtree(workdir, ignore_errors=True)
 
 
