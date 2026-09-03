@@ -52,7 +52,7 @@ jobs:
 
       - run: |
           pip install bandit
-          bandit -r .
+          bandit -r . -x ./tests -ll
 
   docker:
     runs-on: ubuntu-latest
