@@ -1,10 +1,7 @@
-import os
-import tempfile
 import json
-from datetime import datetime, timezone
 
-import storage
 import cli
+import storage
 
 
 def test_storage_roundtrip(tmp_path):
@@ -52,7 +49,9 @@ def test_progress_summary_tracks_streak(tmp_path):
     storage.mark_solved(state, "2", at="2026-08-07T10:00:00+00:00")
     storage.mark_solved(state, "3", at="2026-08-07T11:00:00+00:00")
 
-    summary = storage.get_progress_summary(state, [{"id": "1"}, {"id": "2"}, {"id": "3"}, {"id": "4"}])
+    summary = storage.get_progress_summary(
+        state, [{"id": "1"}, {"id": "2"}, {"id": "3"}, {"id": "4"}]
+    )
 
     assert summary["solved_count"] == 3
     assert summary["current_streak"] == 2

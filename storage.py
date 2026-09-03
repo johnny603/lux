@@ -4,7 +4,6 @@ import os
 import tempfile
 from datetime import datetime, timezone
 
-
 DEFAULT_STATE_ENV = "LUX_STATE"
 STATE_VERSION = 2
 RECENT_ACTIVITY_LIMIT = 50
@@ -142,8 +141,7 @@ def normalize_state(state):
     elif not isinstance(solved, dict):
         solved = {}
     normalized["solved"] = {
-        str(level_id): _normalize_solved_entry(entry)
-        for level_id, entry in solved.items()
+        str(level_id): _normalize_solved_entry(entry) for level_id, entry in solved.items()
     }
 
     achievements = normalized.get("achievements", {})
@@ -191,7 +189,8 @@ def normalize_state(state):
         meta["recent_solved"] = []
 
     meta["history"] = [
-        item for item in (_normalize_activity_entry(entry) for entry in meta["history"])
+        item
+        for item in (_normalize_activity_entry(entry) for entry in meta["history"])
         if item is not None
     ][-RECENT_ACTIVITY_LIMIT:]
 
@@ -279,15 +278,19 @@ def record_attempt(
     attempts[level_id] = entry
 
     history = meta.setdefault("history", [])
-    history.append(_normalize_activity_entry({
-        "at": now,
-        "correct": correct,
-        "level_id": level_id,
-        "title": title,
-        "difficulty": difficulty,
-        "category": category,
-        "attempt_preview": attempt_preview[:120] if attempt_preview else None,
-    }))
+    history.append(
+        _normalize_activity_entry(
+            {
+                "at": now,
+                "correct": correct,
+                "level_id": level_id,
+                "title": title,
+                "difficulty": difficulty,
+                "category": category,
+                "attempt_preview": attempt_preview[:120] if attempt_preview else None,
+            }
+        )
+    )
     meta["history"] = [item for item in history if item is not None][-RECENT_ACTIVITY_LIMIT:]
     state.update(normalized)
     return state
@@ -378,7 +381,9 @@ def update_profile(state: dict, *, display_name=None, preferences=None):
     normalized = normalize_state(state)
     profile = normalized.setdefault("profile", default_profile())
     if display_name is not None:
-        profile["display_name"] = str(display_name).strip() or profile.get("display_name", "Learner")
+        profile["display_name"] = str(display_name).strip() or profile.get(
+            "display_name", "Learner"
+        )
     if preferences is not None and isinstance(preferences, dict):
         prefs = profile.setdefault("preferences", {})
         prefs.update(preferences)

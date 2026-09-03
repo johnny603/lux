@@ -9,7 +9,6 @@ from typing import Dict, Optional
 
 import sandbox_audit
 
-
 MAX_FILES = 16
 MAX_FILENAME_BYTES = 255
 MAX_FILE_BYTES = 256 * 1024
@@ -103,14 +102,16 @@ class DockerSandbox:
                     "command": cmd,
                     "timed_out": True,
                 }
-                _record_audit({
-                    "job_id": job_id,
-                    "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                    "duration_ms": round((time.monotonic() - started) * 1000),
-                    "exit_code": None,
-                    "timed_out": True,
-                    "passed": False,
-                })
+                _record_audit(
+                    {
+                        "job_id": job_id,
+                        "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
+                        "duration_ms": round((time.monotonic() - started) * 1000),
+                        "exit_code": None,
+                        "timed_out": True,
+                        "passed": False,
+                    }
+                )
                 return result
             stdout = completed.stdout.decode("utf-8", errors="ignore")
             stderr = completed.stderr.decode("utf-8", errors="ignore")
@@ -122,14 +123,16 @@ class DockerSandbox:
                 "command": cmd,
                 "timed_out": timed_out,
             }
-            _record_audit({
-                "job_id": job_id,
-                "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                "duration_ms": round((time.monotonic() - started) * 1000),
-                "exit_code": completed.returncode,
-                "timed_out": timed_out,
-                "passed": result["passed"],
-            })
+            _record_audit(
+                {
+                    "job_id": job_id,
+                    "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
+                    "duration_ms": round((time.monotonic() - started) * 1000),
+                    "exit_code": completed.returncode,
+                    "timed_out": timed_out,
+                    "passed": result["passed"],
+                }
+            )
             return result
         finally:
             shutil.rmtree(workdir, ignore_errors=True)

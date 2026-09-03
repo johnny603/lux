@@ -1,9 +1,8 @@
-import storage
 import achievements
 
 
 def test_threshold_achievements(tmp_path):
-    path = tmp_path / "state.json"
+    tmp_path / "state.json"
     state = {"version": 1, "solved": {}, "achievements": {}}
     # no achievements yet
     newly = achievements.evaluate_achievements(state)

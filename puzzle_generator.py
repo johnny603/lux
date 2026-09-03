@@ -16,7 +16,14 @@ def _validate_generated_puzzle(puzzle: Dict) -> bool:
     return True
 
 
-def generate_puzzle_with_ai(*, category: str, difficulty: str, topic: str, existing_ids: Iterable[str], next_id: Optional[str] = None) -> Dict:
+def generate_puzzle_with_ai(
+    *,
+    category: str,
+    difficulty: str,
+    topic: str,
+    existing_ids: Iterable[str],
+    next_id: Optional[str] = None,
+) -> Dict:
     category = (category or "Programming").strip() or "Programming"
     difficulty = (difficulty or "easy").strip().lower() or "easy"
     topic = (topic or "practice").strip() or "practice"

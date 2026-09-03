@@ -17,11 +17,13 @@ def _score_for_entry(state: Dict, entry: Dict, metric: str) -> float:
     return float(entry.get("solved_count", 0) or 0)
 
 
-def get_leaderboard(state: Dict, levels: Optional[List[Dict]] = None, metric: str = "solved_count") -> Dict:
+def get_leaderboard(
+    state: Dict, levels: Optional[List[Dict]] = None, metric: str = "solved_count"
+) -> Dict:
     profile_name = _safe_profile_name(state)
     solved = state.get("solved") or {}
     streak = (state.get("meta") or {}).get("streak") or {}
-    game = (state.get("game") or {})
+    game = state.get("game") or {}
     entry = {
         "name": profile_name,
         "solved_count": len(solved),

@@ -60,7 +60,9 @@ def test_versioned_api_endpoints():
 
 def test_web_submission_flow(monkeypatch):
     client = server.app.test_client()
-    monkeypatch.setattr(server, "run_docker", lambda files, script: {"passed": True, "exit_code": 0})
+    monkeypatch.setattr(
+        server, "run_docker", lambda files, script: {"passed": True, "exit_code": 0}
+    )
 
     page = client.get("/puzzles/5")
     assert page.status_code == 200
@@ -69,7 +71,11 @@ def test_web_submission_flow(monkeypatch):
 
     response = client.post(
         "/puzzles/5/submit",
-        data={"csrf_token": token_match.group(1), "answer": "", "files": (BytesIO(b"int main(void){return 0;}"), "answer.c")},
+        data={
+            "csrf_token": token_match.group(1),
+            "answer": "",
+            "files": (BytesIO(b"int main(void){return 0;}"), "answer.c"),
+        },
     )
     assert response.status_code == 200
     assert b"Submission accepted" in response.data

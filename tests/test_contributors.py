@@ -6,23 +6,30 @@ import server
 
 def test_load_contributors_normalizes_entries(tmp_path):
     manifest = tmp_path / "contributors.json"
-    manifest.write_text(json.dumps({
-        "contributors": [
+    manifest.write_text(
+        json.dumps(
             {
-                "login": "ada",
-                "name": "Ada Lovelace",
-                "contributions": ["documentation"],
-                "badges": ["founding-contributor"],
-            },
-            {"name": "missing login"},
-        ]}))
+                "contributors": [
+                    {
+                        "login": "ada",
+                        "name": "Ada Lovelace",
+                        "contributions": ["documentation"],
+                        "badges": ["founding-contributor"],
+                    },
+                    {"name": "missing login"},
+                ]
+            }
+        )
+    )
 
-    assert contributors.load_contributors(str(manifest)) == [{
-        "login": "ada",
-        "name": "Ada Lovelace",
-        "contributions": ["documentation"],
-        "badges": ["founding-contributor"],
-    }]
+    assert contributors.load_contributors(str(manifest)) == [
+        {
+            "login": "ada",
+            "name": "Ada Lovelace",
+            "contributions": ["documentation"],
+            "badges": ["founding-contributor"],
+        }
+    ]
 
 
 def test_load_contributors_handles_malformed_manifest(tmp_path):
@@ -34,12 +41,14 @@ def test_load_contributors_handles_malformed_manifest(tmp_path):
 
 
 def test_contributor_endpoints(monkeypatch):
-    entries = [{
-        "login": "ada",
-        "name": "Ada Lovelace",
-        "contributions": ["documentation"],
-        "badges": ["founding-contributor"],
-    }]
+    entries = [
+        {
+            "login": "ada",
+            "name": "Ada Lovelace",
+            "contributions": ["documentation"],
+            "badges": ["founding-contributor"],
+        }
+    ]
     monkeypatch.setattr(server.contributors, "load_contributors", lambda: entries)
     client = server.app.test_client()
 
