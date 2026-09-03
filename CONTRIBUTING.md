@@ -252,4 +252,3 @@ Be respectful and constructive.
 We welcome contributors of all experience levels and encourage collaboration, learning, and knowledge sharing.
 
 Thank you for helping improve Lux!
-

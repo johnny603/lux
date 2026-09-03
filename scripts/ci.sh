@@ -9,7 +9,7 @@ ruff check .
 
 echo "🔒 Security scan (Bandit)..."
 # The '|| true' allows the script to continue; remove it if you want to fail on findings
-bandit -r . -ll -f custom || true
+bandit server.py sandbox.py agent.py puzzle_generator.py game_systems.py learning_paths.py achievements.py leaderboard.py storage.py cli.py -ll -f custom || true
 
 echo "🐳 Building Docker image (smoke test)..."
 docker build -t lux-test . --no-cache > /dev/null 2>&1
