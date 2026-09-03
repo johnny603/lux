@@ -20,13 +20,13 @@ def difficulty_key(d: str) -> int:
 def sort_levels(levels: List[Dict], solved: Set[str] = None) -> List[Dict]:
     solved = solved or set()
 
-    def key(l):
+    def key(level):
         return (
-            l.get("id") in solved,
-            difficulty_key(l.get("difficulty")),
-            (l.get("category") or "").lower(),
-            (l.get("title") or "").lower(),
-            l.get("id") or "",
+            level.get("id") in solved,
+            difficulty_key(level.get("difficulty")),
+            (level.get("category") or "").lower(),
+            (level.get("title") or "").lower(),
+            level.get("id") or "",
         )
 
     ordered = sorted(levels, key=key)
@@ -35,7 +35,8 @@ def sort_levels(levels: List[Dict], solved: Set[str] = None) -> List[Dict]:
 
 def _level_matches_text(level: Dict, query: str) -> bool:
     haystack = " ".join(
-        str(level.get(field, "")) for field in ("id", "title", "description", "category", "difficulty")
+        str(level.get(field, ""))
+        for field in ("id", "title", "description", "category", "difficulty")
     ).lower()
     return query in haystack
 
@@ -98,7 +99,7 @@ def format_level_line(level: Dict, solved: Set[str] = None) -> str:
     attempt_text = f" · attempts {attempts}" if attempts else ""
     return (
         f"{marker} {level.get('id')}: {level.get('title')} "
-        f"({level.get('difficulty','?')}) - {level.get('category','?')}"
+        f"({level.get('difficulty', '?')}) - {level.get('category', '?')}"
         f"{attempt_text}"
         f"{' - ' + tags if tags else ''}"
     )
@@ -112,8 +113,7 @@ def format_progress_summary(state: Dict, levels: Optional[List[Dict]] = None) ->
     if summary.get("percent_complete") is not None:
         pieces.append(f"({summary['percent_complete']}%)")
     pieces.append(
-        f"streak {summary.get('current_streak', 0)}"
-        f" / best {summary.get('longest_streak', 0)}"
+        f"streak {summary.get('current_streak', 0)} / best {summary.get('longest_streak', 0)}"
     )
     pieces.append(f"attempts {summary.get('total_attempts', 0)}")
     recent = summary.get("recent_solved") or []

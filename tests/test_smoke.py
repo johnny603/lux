@@ -46,8 +46,12 @@ def test_level_detail_and_submission_endpoints(monkeypatch):
     assert response.status_code == 200
     assert response.get_json()["correct"] is True
 
-    monkeypatch.setattr(server, "run_docker", lambda files, script: {"passed": True, "exit_code": 0})
-    response = client.post("/submit", json={"level_id": "5", "files": {"answer.c": "int main(void){return 0;}"}})
+    monkeypatch.setattr(
+        server, "run_docker", lambda files, script: {"passed": True, "exit_code": 0}
+    )
+    response = client.post(
+        "/submit", json={"level_id": "5", "files": {"answer.c": "int main(void){return 0;}"}}
+    )
     assert response.status_code == 200
     assert response.get_json()["correct"] is True
 

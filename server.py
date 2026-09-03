@@ -1,13 +1,15 @@
-from flask import Flask, jsonify, request, render_template
-from flask_wtf import CSRFProtect
-from datetime import datetime
 import os
-import storage
+from datetime import datetime
+
+from flask import Flask, jsonify, render_template, request
+from flask_wtf import CSRFProtect
+
+import contributors
+import game_systems
 import leaderboard
 import learning_paths
-import game_systems
 import puzzle_generator
-import contributors
+import storage
 from sandbox import DockerSandbox, get_runtime
 
 app = Flask(__name__)
@@ -95,12 +97,14 @@ PUZZLES = [
         "description": "What one-liner prints each .txt file in the current directory?",
         "hint": "Use a for loop and echo",
         "validator": "contains",
-        "flag": "for f in *.txt; do echo \"$f\"; done",
+        "flag": 'for f in *.txt; do echo "$f"; done',
     },
     {
         "id": "11",
         "title": "Linux: Permissions and ownership",
-        "description": "What commands set report.txt to rw-r----- and change its owner to alice:staff?",
+        "description": (
+            "What commands set report.txt to rw-r----- and change its owner to alice:staff?"
+        ),
         "hint": "Use chmod and chown together",
         "validator": "contains",
         "flag": "chmod 640 report.txt && chown alice:staff report.txt",
@@ -124,23 +128,36 @@ PUZZLES = [
     {
         "id": "14",
         "title": "Bash challenge: Count lines",
-        "description": "Write answer.sh so that sh answer.sh input.txt prints the number of lines in the file.",
+        "description": (
+            "Write answer.sh so that sh answer.sh input.txt prints the number of lines in the file."
+        ),
         "hint": "wc -l can help",
         "validator": "script",
-        "test_script": "printf 'alpha\nbeta\ngamma\n' > input.txt && sh answer.sh input.txt | grep -xq '3'",
+        "test_script": (
+            "printf 'alpha\nbeta\ngamma\n' > input.txt && sh answer.sh input.txt | grep -xq '3'"
+        ),
     },
     {
         "id": "15",
         "title": "Bash challenge: Filter TODOs",
-        "description": "Write answer.sh so that sh answer.sh notes.txt prints only lines that start with TODO.",
+        "description": (
+            "Write answer.sh so that sh answer.sh notes.txt prints only lines that start with TODO."
+        ),
         "hint": "grep with a start-of-line anchor is enough",
         "validator": "script",
-        "test_script": "printf 'TODO first\nskip\nTODO second\n' > notes.txt && sh answer.sh notes.txt | grep -xq 'TODO first' && sh answer.sh notes.txt | grep -xq 'TODO second'",
+        "test_script": (
+            "printf 'TODO first\nskip\nTODO second\n' > notes.txt "
+            "&& sh answer.sh notes.txt | grep -xq 'TODO first' "
+            "&& sh answer.sh notes.txt | grep -xq 'TODO second'"
+        ),
     },
     {
         "id": "16",
         "title": "C: Intermediate pointers",
-        "description": "Write answer.c so it prints the second value from the array {10, 20, 30} by dereferencing a pointer.",
+        "description": (
+            "Write answer.c so it prints the second value from the array {10, 20, 30} "
+            "by dereferencing a pointer."
+        ),
         "hint": "Use pointer arithmetic or array indexing.",
         "validator": "script",
         "test_script": "gcc answer.c -o answer && ./answer | grep -xq '20'",
@@ -148,7 +165,10 @@ PUZZLES = [
     {
         "id": "17",
         "title": "C: Memory management",
-        "description": "Write answer.c so it allocates space for two integers, stores 40 and 2, frees the memory, and prints their sum.",
+        "description": (
+            "Write answer.c so it allocates space for two integers, stores 40 and 2, "
+            "frees the memory, and prints their sum."
+        ),
         "hint": "malloc and free both matter here.",
         "validator": "script",
         "test_script": "gcc answer.c -o answer && ./answer | grep -xq '42'",
@@ -156,7 +176,10 @@ PUZZLES = [
     {
         "id": "18",
         "title": "C: Data structures",
-        "description": "Write answer.c so it builds a three-node linked list with values 1, 2, and 3, then prints the node count.",
+        "description": (
+            "Write answer.c so it builds a three-node linked list with values 1, 2, and 3, "
+            "then prints the node count."
+        ),
         "hint": "A struct with a next pointer is enough.",
         "validator": "script",
         "test_script": "gcc answer.c -o answer && ./answer | grep -xq '3'",
@@ -164,7 +187,10 @@ PUZZLES = [
     {
         "id": "19",
         "title": "C: Algorithms",
-        "description": "Write answer.c so it binary-searches the sorted array {5, 10, 15, 20, 25, 30, 35} for 25 and prints its index.",
+        "description": (
+            "Write answer.c so it binary-searches the sorted array {5, 10, 15, 20, 25, 30, 35} "
+            "for 25 and prints its index."
+        ),
         "hint": "Divide the search space.",
         "validator": "script",
         "test_script": "gcc answer.c -o answer && ./answer | grep -xq '4'",
@@ -172,23 +198,42 @@ PUZZLES = [
     {
         "id": "20",
         "title": "Python: List comprehension",
-        "description": "Write answer.py so it defines nums = [1, 2, 3] and uses a list comprehension to print [1, 4, 9].",
+        "description": (
+            "Write answer.py so it defines nums = [1, 2, 3] and uses a list comprehension "
+            "to print [1, 4, 9]."
+        ),
         "hint": "Square each x inside a comprehension.",
         "validator": "script",
-        "test_script": "grep -Eq 'squares[[:space:]]*=[[:space:]]*\\[x\\*x[[:space:]]+for[[:space:]]+x[[:space:]]+in[[:space:]]+nums\\]' answer.py && grep -Eq 'print\\(squares\\)' answer.py",
+        "test_script": (
+            "grep -Eq "
+            "'squares[[:space:]]*=[[:space:]]*\\[x\\*x[[:space:]]+for[[:space:]]+"
+            "x[[:space:]]+in[[:space:]]+nums\\]' answer.py "
+            "&& grep -Eq 'print\\(squares\\)' answer.py"
+        ),
     },
     {
         "id": "21",
         "title": "Java: Entry point",
-        "description": "Write Main.java so it contains a standard public static void main(String[] args) and prints ready.",
+        "description": (
+            "Write Main.java so it contains a standard public static void main(String[] args) "
+            "and prints ready."
+        ),
         "hint": "main is the entry point.",
         "validator": "script",
-        "test_script": "grep -Eq 'public[[:space:]]+static[[:space:]]+void[[:space:]]+main\\(String\\[\\][[:space:]]+args\\)' Main.java && grep -Eq 'System\\.out\\.println\\(\\\"ready\\\"\\);' Main.java",
+        "test_script": (
+            "grep -Eq "
+            "'public[[:space:]]+static[[:space:]]+void[[:space:]]+main\\(String\\[\\]"
+            "[[:space:]]+args\\)' Main.java "
+            "&& grep -Eq 'System\\.out\\.println\\(\\\"ready\\\"\\);' Main.java"
+        ),
     },
     {
         "id": "22",
         "title": "JavaScript: Strict equality",
-        "description": "Write answer.js so it compares left and right with strict equality and prints true when they match.",
+        "description": (
+            "Write answer.js so it compares left and right with strict equality "
+            "and prints true when they match."
+        ),
         "hint": "Use three equals signs.",
         "validator": "script",
         "test_script": "grep -Eq '===' answer.js && grep -Eq 'console\\.log\\(true\\)' answer.js",
@@ -196,18 +241,30 @@ PUZZLES = [
     {
         "id": "23",
         "title": "Web security: SQL injection",
-        "description": "Write answer.sh so it accepts only usernames from the allowlist alice, bob, or carol and prints ACCEPT when matched.",
+        "description": (
+            "Write answer.sh so it accepts only usernames from the allowlist "
+            "alice, bob, or carol and prints ACCEPT when matched."
+        ),
         "hint": "Known-good inputs only.",
         "validator": "script",
-        "test_script": "printf 'alice\n' | sh answer.sh | grep -xq 'ACCEPT' && printf 'mallory\n' | sh answer.sh | grep -xq 'REJECT'",
+        "test_script": (
+            "printf 'alice\n' | sh answer.sh | grep -xq 'ACCEPT' "
+            "&& printf 'mallory\n' | sh answer.sh | grep -xq 'REJECT'"
+        ),
     },
     {
         "id": "24",
         "title": "Reverse engineering: Strings",
-        "description": "Write answer.sh so it uses strings on the input binary and prints any line containing FLAG.",
+        "description": (
+            "Write answer.sh so it uses strings on the input binary "
+            "and prints any line containing FLAG."
+        ),
         "hint": "Extract printable text first.",
         "validator": "script",
-        "test_script": "printf 'abc\0FLAG{reverse_me}\0xyz' > sample.bin && sh answer.sh sample.bin | grep -xq 'FLAG{reverse_me}'",
+        "test_script": (
+            "printf 'abc\0FLAG{reverse_me}\0xyz' > sample.bin "
+            "&& sh answer.sh sample.bin | grep -xq 'FLAG{reverse_me}'"
+        ),
     },
     {
         "id": "25",
@@ -215,7 +272,11 @@ PUZZLES = [
         "description": "Write answer.sh so it prints the SHA-256 checksum of evidence.bin.",
         "hint": "Use a checksum command from coreutils.",
         "validator": "script",
-        "test_script": "printf 'forensic data\n' > evidence.bin && expected=$(sha256sum evidence.bin | awk '{print $1}') && sh answer.sh evidence.bin | grep -xq \"$expected\"",
+        "test_script": (
+            "printf 'forensic data\n' > evidence.bin "
+            "&& expected=$(sha256sum evidence.bin | awk '{print $1}') "
+            '&& sh answer.sh evidence.bin | grep -xq "$expected"'
+        ),
     },
     {
         "id": "26",
@@ -223,28 +284,43 @@ PUZZLES = [
         "description": "Write answer.sh so it base64-decodes encoded.txt and prints the plaintext.",
         "hint": "The encoding is reversible.",
         "validator": "script",
-        "test_script": "printf 'SGVsbG8=\n' > encoded.txt && sh answer.sh encoded.txt | grep -xq 'Hello'",
+        "test_script": (
+            "printf 'SGVsbG8=\n' > encoded.txt && sh answer.sh encoded.txt | grep -xq 'Hello'"
+        ),
     },
     {
         "id": "27",
         "title": "Secure coding: Input validation",
-        "description": "Write answer.sh so it only accepts usernames matching ^[a-z][a-z0-9_]*$ and rejects anything else.",
+        "description": (
+            "Write answer.sh so it only accepts usernames matching ^[a-z][a-z0-9_]*$ "
+            "and rejects anything else."
+        ),
         "hint": "Validate input before using it.",
         "validator": "script",
-        "test_script": "printf 'alice1\n' | sh answer.sh | grep -xq 'VALID' && printf 'Bad-Name\n' | sh answer.sh | grep -xq 'INVALID'",
+        "test_script": (
+            "printf 'alice1\n' | sh answer.sh | grep -xq 'VALID' "
+            "&& printf 'Bad-Name\n' | sh answer.sh | grep -xq 'INVALID'"
+        ),
     },
     {
         "id": "28",
         "title": "CTF beginner: File signature",
-        "description": "Write answer.sh so it reports the file type of the input using the file command.",
+        "description": (
+            "Write answer.sh so it reports the file type of the input using the file command."
+        ),
         "hint": "Magic bytes reveal the type.",
         "validator": "script",
-        "test_script": "printf 'hello world\n' > note.txt && sh answer.sh note.txt | grep -qi 'text'",
+        "test_script": (
+            "printf 'hello world\n' > note.txt && sh answer.sh note.txt | grep -qi 'text'"
+        ),
     },
     {
         "id": "29",
         "title": "Docker: Run container",
-        "description": "Write answer.sh so it prints the exact command to run an interactive Ubuntu container and remove it on exit.",
+        "description": (
+            "Write answer.sh so it prints the exact command to run an interactive "
+            "Ubuntu container and remove it on exit."
+        ),
         "hint": "Combine --rm and -it.",
         "validator": "script",
         "test_script": "sh answer.sh | grep -xq 'docker run --rm -it ubuntu'",
@@ -252,10 +328,14 @@ PUZZLES = [
     {
         "id": "30",
         "title": "Git: Branch creation",
-        "description": "Write answer.sh so it initializes a repo and creates a new branch named feature/auth.",
+        "description": (
+            "Write answer.sh so it initializes a repo and creates a new branch named feature/auth."
+        ),
         "hint": "Use git checkout -b.",
         "validator": "script",
-        "test_script": "git init -q && sh answer.sh && git branch --show-current | grep -xq 'feature/auth'",
+        "test_script": (
+            "git init -q && sh answer.sh && git branch --show-current | grep -xq 'feature/auth'"
+        ),
     },
     {
         "id": "31",
@@ -263,15 +343,24 @@ PUZZLES = [
         "description": "Write .github/workflows/ci.yml so the workflow triggers on push.",
         "hint": "The trigger key is short.",
         "validator": "script",
-        "test_script": "mkdir -p .github/workflows && grep -Eq '^on:' .github/workflows/ci.yml && grep -Eq 'push' .github/workflows/ci.yml",
+        "test_script": (
+            "mkdir -p .github/workflows "
+            "&& grep -Eq '^on:' .github/workflows/ci.yml "
+            "&& grep -Eq 'push' .github/workflows/ci.yml"
+        ),
     },
     {
         "id": "32",
         "title": "Cloud fundamentals: Shared model",
-        "description": "Write answer.sh so it prints IaaS when the prompt describes provider-managed hardware and customer-managed VMs.",
+        "description": (
+            "Write answer.sh so it prints IaaS when the prompt describes "
+            "provider-managed hardware and customer-managed VMs."
+        ),
         "hint": "The answer is an acronym.",
         "validator": "script",
-        "test_script": "printf 'provider hardware and virtual machines\n' | sh answer.sh | grep -xq 'IaaS'",
+        "test_script": (
+            "printf 'provider hardware and virtual machines\n' | sh answer.sh | grep -xq 'IaaS'"
+        ),
     },
 ]
 
@@ -279,31 +368,83 @@ PUZZLE_METADATA = {
     "1": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "filesystem", "cli"]},
     "2": {"category": "Programming", "difficulty": "easy", "tags": ["c", "build", "gcc"]},
     "3": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "find", "filesystem"]},
-    "4": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "permissions", "filesystem"]},
+    "4": {
+        "category": "Linux",
+        "difficulty": "easy",
+        "tags": ["linux", "permissions", "filesystem"],
+    },
     "5": {"category": "Programming", "difficulty": "easy", "tags": ["c", "stdio", "compile"]},
     "6": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "navigation", "shell"]},
     "7": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "process", "ps"]},
     "8": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "networking", "sockets"]},
     "9": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "packages", "apt"]},
     "10": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "bash", "loops"]},
-    "11": {"category": "Linux", "difficulty": "medium", "tags": ["linux", "permissions", "ownership"]},
+    "11": {
+        "category": "Linux",
+        "difficulty": "medium",
+        "tags": ["linux", "permissions", "ownership"],
+    },
     "12": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "logs", "systemd"]},
     "13": {"category": "Linux", "difficulty": "easy", "tags": ["linux", "disk", "df"]},
     "14": {"category": "Linux", "difficulty": "medium", "tags": ["bash", "scripting", "files"]},
     "15": {"category": "Linux", "difficulty": "medium", "tags": ["bash", "filtering", "grep"]},
     "16": {"category": "Programming", "difficulty": "medium", "tags": ["c", "pointers", "memory"]},
     "17": {"category": "Programming", "difficulty": "medium", "tags": ["c", "malloc", "free"]},
-    "18": {"category": "Programming", "difficulty": "medium", "tags": ["c", "structs", "linked-lists"]},
-    "19": {"category": "Programming", "difficulty": "medium", "tags": ["c", "algorithms", "binary-search"]},
-    "20": {"category": "Programming", "difficulty": "medium", "tags": ["python", "comprehensions", "lists"]},
-    "21": {"category": "Programming", "difficulty": "easy", "tags": ["java", "entry-point", "syntax"]},
-    "22": {"category": "Programming", "difficulty": "easy", "tags": ["javascript", "operators", "equality"]},
-    "23": {"category": "Cybersecurity", "difficulty": "medium", "tags": ["web-security", "allowlist", "input-validation"]},
-    "24": {"category": "Cybersecurity", "difficulty": "medium", "tags": ["reverse-engineering", "strings", "binary"]},
-    "25": {"category": "Cybersecurity", "difficulty": "easy", "tags": ["forensics", "hashing", "sha256"]},
-    "26": {"category": "Cybersecurity", "difficulty": "easy", "tags": ["cryptography", "base64", "encoding"]},
-    "27": {"category": "Cybersecurity", "difficulty": "medium", "tags": ["secure-coding", "validation", "regex"]},
-    "28": {"category": "Cybersecurity", "difficulty": "easy", "tags": ["ctf", "file-signatures", "file"]},
+    "18": {
+        "category": "Programming",
+        "difficulty": "medium",
+        "tags": ["c", "structs", "linked-lists"],
+    },
+    "19": {
+        "category": "Programming",
+        "difficulty": "medium",
+        "tags": ["c", "algorithms", "binary-search"],
+    },
+    "20": {
+        "category": "Programming",
+        "difficulty": "medium",
+        "tags": ["python", "comprehensions", "lists"],
+    },
+    "21": {
+        "category": "Programming",
+        "difficulty": "easy",
+        "tags": ["java", "entry-point", "syntax"],
+    },
+    "22": {
+        "category": "Programming",
+        "difficulty": "easy",
+        "tags": ["javascript", "operators", "equality"],
+    },
+    "23": {
+        "category": "Cybersecurity",
+        "difficulty": "medium",
+        "tags": ["web-security", "allowlist", "input-validation"],
+    },
+    "24": {
+        "category": "Cybersecurity",
+        "difficulty": "medium",
+        "tags": ["reverse-engineering", "strings", "binary"],
+    },
+    "25": {
+        "category": "Cybersecurity",
+        "difficulty": "easy",
+        "tags": ["forensics", "hashing", "sha256"],
+    },
+    "26": {
+        "category": "Cybersecurity",
+        "difficulty": "easy",
+        "tags": ["cryptography", "base64", "encoding"],
+    },
+    "27": {
+        "category": "Cybersecurity",
+        "difficulty": "medium",
+        "tags": ["secure-coding", "validation", "regex"],
+    },
+    "28": {
+        "category": "Cybersecurity",
+        "difficulty": "easy",
+        "tags": ["ctf", "file-signatures", "file"],
+    },
     "29": {"category": "DevOps", "difficulty": "easy", "tags": ["docker", "containers", "cli"]},
     "30": {"category": "DevOps", "difficulty": "easy", "tags": ["git", "branches", "workflow"]},
     "31": {"category": "DevOps", "difficulty": "easy", "tags": ["ci-cd", "github-actions", "yaml"]},
@@ -312,6 +453,7 @@ PUZZLE_METADATA = {
 
 for puzzle in PUZZLES:
     puzzle.update(PUZZLE_METADATA.get(puzzle["id"], {}))
+
 
 def get_puzzle(pid):
     return next((p for p in PUZZLES if p["id"] == pid), None)
@@ -378,16 +520,18 @@ def ready():
 
 @app.route("/levels", methods=["GET"])
 def levels():
-    return jsonify([
-        {
-            "id": p["id"],
-            "title": p["title"],
-            "category": p["category"],
-            "difficulty": p["difficulty"],
-            "tags": p["tags"],
-        }
-        for p in PUZZLES
-    ])
+    return jsonify(
+        [
+            {
+                "id": p["id"],
+                "title": p["title"],
+                "category": p["category"],
+                "difficulty": p["difficulty"],
+                "tags": p["tags"],
+            }
+            for p in PUZZLES
+        ]
+    )
 
 
 @app.route("/level/<pid>", methods=["GET"])
@@ -535,12 +679,14 @@ def api_level(pid):
 @app.route("/api/v1/progress", methods=["GET"])
 def api_progress():
     state = storage.load_state()
-    return jsonify({
-        "progress": storage.get_progress_summary(state, catalog_levels()),
-        "solved": list(storage.get_solved_levels(state)),
-        "achievements": state.get("achievements", {}),
-        "profile": state.get("profile", {"display_name": "Learner", "preferences": {}}),
-    })
+    return jsonify(
+        {
+            "progress": storage.get_progress_summary(state, catalog_levels()),
+            "solved": list(storage.get_solved_levels(state)),
+            "achievements": state.get("achievements", {}),
+            "profile": state.get("profile", {"display_name": "Learner", "preferences": {}}),
+        }
+    )
 
 
 @app.route("/api/v1/achievements", methods=["GET"])
@@ -570,7 +716,15 @@ def web_puzzles():
     solved = storage.get_solved_levels(state)
 
     if query:
-        levels = [lvl for lvl in levels if query in " ".join(str(lvl.get(k, "")) for k in ("id", "title", "description", "category", "difficulty")).lower()]
+        levels = [
+            lvl
+            for lvl in levels
+            if query
+            in " ".join(
+                str(lvl.get(k, ""))
+                for k in ("id", "title", "description", "category", "difficulty")
+            ).lower()
+        ]
     if category:
         levels = [lvl for lvl in levels if lvl.get("category", "").lower() == category]
     if difficulty:
@@ -595,7 +749,11 @@ def dashboard():
     levels = catalog_levels()
     summary = storage.get_progress_summary(state, levels)
     solved = storage.get_solved_levels(state)
-    recent_levels = [get_puzzle(level_id) for level_id in state.get("meta", {}).get("recent_solved", []) if get_puzzle(level_id)]
+    recent_levels = [
+        get_puzzle(level_id)
+        for level_id in state.get("meta", {}).get("recent_solved", [])
+        if get_puzzle(level_id)
+    ]
     return render_template(
         "dashboard.html",
         progress=summary,
@@ -635,11 +793,17 @@ def web_submit(pid):
         if upload and upload.filename:
             files[upload.filename] = upload.read().decode(errors="ignore")
     if puzzle.get("validator") == "script" and not files:
-        return render_template("result.html", puzzle=puzzle_summary(puzzle), result={"ok": False, "error": "upload at least one source file"}, status=400)
+        return render_template(
+            "result.html",
+            puzzle=puzzle_summary(puzzle),
+            result={"ok": False, "error": "upload at least one source file"},
+            status=400,
+        )
 
     payload, status = _submission_response(puzzle, attempt, files)
-    return render_template("result.html", puzzle=puzzle_summary(puzzle), result=payload, status=status)
-
+    return render_template(
+        "result.html", puzzle=puzzle_summary(puzzle), result=payload, status=status
+    )
 
 
 def build_docker_command(source_dir):
