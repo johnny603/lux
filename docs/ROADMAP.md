@@ -2,12 +2,64 @@
 
 > Long-term vision: Build Lux into a puzzle-based learning platform that combines Linux, programming, cybersecurity, and AI-assisted learning with a modern cross-platform experience.
 >
-> Roadmap status: current implementation centers on server.py and agent.py, with JSON state for progress and a Flutter/Dart path planned for mobile support.
+> Roadmap status: the community milestone, sandbox hardening, and v1.0 release artifacts are complete. The current implementation centers on server.py and agent.py, with local JSON state and a Flutter/Dart path planned for mobile support.
 
 If you want to work on a section of the roadmap
 Get my approval and format the branch like this:
-<username>/<scope>/<feature>
+`<username>/<scope>/<feature>`
 
+## Development
+
+Create and activate a virtual environment, then install the application dependencies:
+
+```bash
+python -m venv venv
+source venv/bin/activate
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+```
+
+Start the development server:
+
+```bash
+python server.py
+```
+
+The server listens on `http://127.0.0.1:5050`. Flask's development command can also be used:
+
+```bash
+export FLASK_APP=server.py
+export FLASK_DEBUG=1
+flask run --port 5050
+```
+
+Run the test suite and, when installed, lint the project:
+
+```bash
+pytest
+ruff check .
+```
+
+Docker is required for script-based puzzle validation. Ollama is optional for AI hints.
+
+## Production
+
+Copy `.env.example` to `.env`, replace all placeholder secrets, and start the container stack:
+
+```bash
+docker-compose up -d
+```
+
+The application is served by Gunicorn on port `5050`. Check liveness and readiness with:
+
+```bash
+curl http://127.0.0.1:5050/health
+curl http://127.0.0.1:5050/ready
+```
+
+Use `.env.example` as the configuration reference. `LUX_DOCKER_RUNTIME=runsc` enables gVisor where installed, and `LUX_SANDBOX_AUDIT_LOG` selects the JSONL audit destination. Single-instance deployments can use SQLite; PostgreSQL is recommended for hosted deployments. The current local-first code still stores progress in JSON, so database migrations and repository integration are required before enabling multi-user production persistence.
+
+Before a public launch, complete authentication, password and token security, database migrations, TLS, rate limiting, upload limits, backups, monitoring, and authorization checks. See [docs/DEPLOYMENT.md](DEPLOYMENT.md) for the deployment checklist and Gunicorn configuration.
 
 ## Core Platform
 
@@ -119,10 +171,11 @@ Note: These CLI progress and achievement features are now implemented in the mai
 
 * [x] Stronger Docker restrictions for safer puzzle execution
 * [x] Read/write isolation for ephemeral workspace access
-* [x] User namespace isolation for reduced host exposure
 * [ ] gVisor support for a stronger runtime boundary
 * [ ] Firecracker support for microVM-based isolation
-* [ ] Secure execution auditing for traceable sandbox activity
+* [x] Secure execution auditing for traceable sandbox activity
+
+See [docs/FIRECRACKER.md](FIRECRACKER.md) for the microVM design and rollout criteria.
 
 ## Testing
 
@@ -137,9 +190,11 @@ Note: These CLI progress and achievement features are now implemented in the mai
 * [x] Contributing guide
 * [x] Issue templates
 * [x] Pull request template
-* [ ] Contributor recognition system
-* [ ] Good first issue labels
-* [ ] Mentorship-friendly issues
+* [x] Contributor recognition system
+* [x] Good first issue labels
+* [x] Mentorship-friendly issues
+
+Contributor data and starter issue guidance live in `contributors.json`, `.github/labels.yml`, and [docs/MENTORSHIP_ISSUES.md](MENTORSHIP_ISSUES.md).
 
 ## Game Vision
 
@@ -181,4 +236,5 @@ Note: These CLI progress and achievement features are now implemented in the mai
 * [ ] Flutter mobile app
 * [x] Story mode
 * [x] Advanced sandboxing
+* [x] Release artifacts: Dockerfile, Compose, deployment documentation, API documentation, `/ready`, and versioned submit endpoint
 * [ ] Public launch

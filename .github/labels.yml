@@ -1,0 +1,20 @@
+# Apply with: gh label create <name> --color <color> --description <description>
+labels:
+  - name: good first issue
+    color: 7057ff
+    description: Small, well-scoped work for new contributors
+  - name: help wanted
+    color: 008672
+    description: Maintainers welcome community help
+  - name: mentorship
+    color: 0e8a16
+    description: Issue with maintainer guidance available
+  - name: documentation
+    color: 0075ca
+    description: Documentation, examples, or onboarding
+  - name: mobile
+    color: 1d76db
+    description: Flutter or mobile client work
+  - name: security
+    color: b60205
+    description: Security or sandboxing work

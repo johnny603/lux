@@ -1,0 +1,36 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${LUX_PORT:-5050}:5050"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://lux:lux@db:5432/lux}
+      LUX_SANDBOX_AUDIT_LOG: /var/log/lux/sandbox-audit.jsonl
+    volumes:
+      - lux-state:/home/lux/.lux
+      - lux-audit:/var/log/lux
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: lux
+      POSTGRES_USER: lux
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - lux-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lux -d lux"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lux-state:
+  lux-audit:
+  lux-db:

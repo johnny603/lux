@@ -64,6 +64,8 @@ Optional API endpoints:
 - `/api/v1/level/<id>`
 - `/api/v1/progress`
 - `/api/v1/achievements`
+- `/api/v1/contributors`
+- `/contributors`
 
 ## CLI Usage & State
 
@@ -123,3 +125,4 @@ PYTHONPATH=. pytest -q
 - Add more levels with staged tasks and progressive hints.
 - Implement an interactive web UI.
 - Add secure sandbox execution for C compilation and run (via Firecracker, gVisor, or chrooted containers).
+- See [docs/MENTORSHIP_ISSUES.md](docs/MENTORSHIP_ISSUES.md) for scoped starter contributions.

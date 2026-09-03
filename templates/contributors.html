@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <h2>Contributors</h2>
+    <p class="muted">People who help Lux grow through code, puzzles, documentation, security work, and mentorship.</p>
+  </section>
+
+  <section class="grid three" style="margin-top:20px;">
+    {% for contributor in contributors %}
+      <article class="card">
+        <h3>{{ contributor.name }}</h3>
+        <a class="muted" href="https://github.com/{{ contributor.login }}">@{{ contributor.login }}</a>
+        <div class="muted-list">
+          {% for contribution in contributor.contributions %}
+            <span class="chip">{{ contribution }}</span>
+          {% endfor %}
+        </div>
+        <div class="muted-list">
+          {% for badge in contributor.badges %}
+            <span class="badge success">{{ badge }}</span>
+          {% endfor %}
+        </div>
+      </article>
+    {% else %}
+      <p class="muted">Contributor recognition is ready for its first entries.</p>
+    {% endfor %}
+  </section>
+{% endblock %}

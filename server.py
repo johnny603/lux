@@ -7,6 +7,7 @@ import leaderboard
 import learning_paths
 import game_systems
 import puzzle_generator
+import contributors
 from sandbox import DockerSandbox, get_runtime
 
 app = Flask(__name__)
@@ -370,6 +371,11 @@ def health():
     return response(service="ok")
 
 
+@app.route("/ready", methods=["GET"])
+def ready():
+    return response(service="ready")
+
+
 @app.route("/levels", methods=["GET"])
 def levels():
     return jsonify([
@@ -394,6 +400,7 @@ def level(pid):
 
 
 @app.route("/submit", methods=["POST"])
+@app.route("/api/v1/submit", methods=["POST"])
 @csrf.exempt
 def submit():
     data = request.json or {}
@@ -540,6 +547,16 @@ def api_progress():
 def api_achievements():
     state = storage.load_state()
     return jsonify(state.get("achievements", {}))
+
+
+@app.route("/api/v1/contributors", methods=["GET"])
+def api_contributors():
+    return jsonify({"contributors": contributors.load_contributors()})
+
+
+@app.route("/contributors", methods=["GET"])
+def web_contributors():
+    return render_template("contributors.html", contributors=contributors.load_contributors())
 
 
 @app.route("/web", methods=["GET"])

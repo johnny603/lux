@@ -12,6 +12,9 @@ def test_health_endpoint():
 
     assert response.status_code == 200
 
+    response = client.get("/ready")
+    assert response.status_code == 200
+
 
 def test_levels_endpoint():
     client = server.app.test_client()
@@ -36,6 +39,10 @@ def test_level_detail_and_submission_endpoints(monkeypatch):
     assert payload["difficulty"] == "easy"
 
     response = client.post("/submit", json={"level_id": "1", "attempt": "-a"})
+    assert response.status_code == 200
+    assert response.get_json()["correct"] is True
+
+    response = client.post("/api/v1/submit", json={"level_id": "1", "attempt": "-a"})
     assert response.status_code == 200
     assert response.get_json()["correct"] is True
 

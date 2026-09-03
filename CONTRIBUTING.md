@@ -12,6 +12,10 @@ Lux is an open-source puzzle platform featuring:
 
 We welcome bug fixes, new puzzles, documentation improvements, tests, and new features.
 
+## Contributor Recognition
+
+Lux maintains a checked-in `contributors.json` manifest for people who contribute code, puzzles, documentation, security improvements, or mentorship. Maintainers should update it through a reviewed pull request. Available badges and four scoped starter issues are documented in `docs/MENTORSHIP_ISSUES.md`.
+
 ---
 
 ## Development Setup
