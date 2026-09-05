@@ -71,15 +71,25 @@ class DockerSandbox:
             raise ValueError("filename must stay inside the sandbox")
         return str(target)
 
-    def run(self, files: Dict[str, str], script: str) -> Dict[str, Optional[object]]:
-        if not isinstance(files, dict) or len(files) > MAX_FILES:
-            raise ValueError(f"at most {MAX_FILES} files are allowed")
-        if not isinstance(script, str) or len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
-            raise ValueError("sandbox script is too large")
-        workdir = tempfile.mkdtemp(prefix="lux-sandbox-")
+    def run(
+        self,
+        files: Dict[str, str],
+        script: str,
+        puzzle_id: Optional[str] = None,
+    ) -> Dict[str, Optional[object]]:
+        workdir = None
         job_id = str(uuid.uuid4())
         started = time.monotonic()
+        runtime_name = os.getenv("LUX_DOCKER_RUNTIME", "runc")
+
         try:
+            if not isinstance(files, dict) or len(files) > MAX_FILES:
+                raise ValueError(f"at most {MAX_FILES} files are allowed")
+            if not isinstance(script, str) or len(script.encode("utf-8")) > MAX_SCRIPT_BYTES:
+                raise ValueError("sandbox script is too large")
+
+            workdir = tempfile.mkdtemp(prefix="lux-sandbox-")
+
             for filename, content in files.items():
                 target = self._safe_target(workdir, filename)
                 if not isinstance(content, str) or len(content.encode("utf-8")) > MAX_FILE_BYTES:
@@ -90,10 +100,11 @@ class DockerSandbox:
             with open(os.path.join(workdir, "run.sh"), "w", encoding="utf-8") as handle:
                 handle.write(script)
             cmd = self.build_command(workdir)
+
             try:
                 completed = subprocess.run(cmd, capture_output=True, timeout=EXECUTION_TIMEOUT)
-                timed_out = False
             except subprocess.TimeoutExpired as error:
+                duration_ms = max(0, round((time.monotonic() - started) * 1000))
                 result = {
                     "passed": False,
                     "exit_code": None,
@@ -101,41 +112,97 @@ class DockerSandbox:
                     "stderr": "sandbox execution timed out",
                     "command": cmd,
                     "timed_out": True,
+                    "error": "timeout",
                 }
                 _record_audit(
                     {
                         "job_id": job_id,
-                        "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                        "duration_ms": round((time.monotonic() - started) * 1000),
+                        "puzzle_id": puzzle_id,
+                        "runtime": runtime_name,
+                        "duration_ms": duration_ms,
                         "exit_code": None,
                         "timed_out": True,
+                        "docker_failure": False,
                         "passed": False,
+                        "result": "timeout",
                     }
                 )
                 return result
+            except (subprocess.SubprocessError, OSError) as error:
+                duration_ms = max(0, round((time.monotonic() - started) * 1000))
+                result = {
+                    "passed": False,
+                    "exit_code": None,
+                    "stdout": "",
+                    "stderr": f"docker execution failed: {error}",
+                    "command": cmd,
+                    "timed_out": False,
+                    "docker_failure": True,
+                    "error": "docker_failure",
+                }
+                _record_audit(
+                    {
+                        "job_id": job_id,
+                        "puzzle_id": puzzle_id,
+                        "runtime": runtime_name,
+                        "duration_ms": duration_ms,
+                        "exit_code": None,
+                        "timed_out": False,
+                        "docker_failure": True,
+                        "passed": False,
+                        "result": "docker_failure",
+                    }
+                )
+                return result
+
+            duration_ms = max(0, round((time.monotonic() - started) * 1000))
             stdout = completed.stdout.decode("utf-8", errors="ignore")
             stderr = completed.stderr.decode("utf-8", errors="ignore")
+            passed = completed.returncode == 0
+            result_status = "success" if passed else "nonzero_exit"
+
             result = {
-                "passed": completed.returncode == 0,
+                "passed": passed,
                 "exit_code": completed.returncode,
                 "stdout": stdout,
                 "stderr": stderr,
                 "command": cmd,
-                "timed_out": timed_out,
+                "timed_out": False,
+                "docker_failure": False,
             }
             _record_audit(
                 {
                     "job_id": job_id,
-                    "runtime": os.getenv("LUX_DOCKER_RUNTIME", "runc"),
-                    "duration_ms": round((time.monotonic() - started) * 1000),
+                    "puzzle_id": puzzle_id,
+                    "runtime": runtime_name,
+                    "duration_ms": duration_ms,
                     "exit_code": completed.returncode,
-                    "timed_out": timed_out,
-                    "passed": result["passed"],
+                    "timed_out": False,
+                    "docker_failure": False,
+                    "passed": passed,
+                    "result": result_status,
                 }
             )
             return result
+        except ValueError as err:
+            duration_ms = max(0, round((time.monotonic() - started) * 1000))
+            _record_audit(
+                {
+                    "job_id": job_id,
+                    "puzzle_id": puzzle_id,
+                    "runtime": runtime_name,
+                    "duration_ms": duration_ms,
+                    "exit_code": None,
+                    "timed_out": False,
+                    "docker_failure": False,
+                    "passed": False,
+                    "result": "validation_error",
+                }
+            )
+            raise err
         finally:
-            shutil.rmtree(workdir, ignore_errors=True)
+            if workdir and os.path.exists(workdir):
+                shutil.rmtree(workdir, ignore_errors=True)
 
 
 _RUNTIME: Optional[DockerSandbox] = None
