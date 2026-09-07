@@ -79,3 +79,33 @@ def test_web_submission_flow(monkeypatch):
     )
     assert response.status_code == 200
     assert b"Submission accepted" in response.data
+
+
+def test_api_documentation_contract_and_errors():
+    client = server.app.test_client()
+
+    # Health and ready
+    res_health = client.get("/health")
+    assert res_health.status_code == 200
+    assert res_health.get_json()["ok"] is True
+
+    res_ready = client.get("/ready")
+    assert res_ready.status_code == 200
+    assert res_ready.get_json()["ok"] is True
+
+    # 404 for non-existent level
+    res_not_found = client.get("/api/v1/level/99999")
+    assert res_not_found.status_code == 404
+    assert res_not_found.get_json()["ok"] is False
+    assert res_not_found.get_json()["error"] == "not found"
+
+    # Submission error responses
+    res_missing_id = client.post("/api/v1/submit", json={"attempt": "test"})
+    assert res_missing_id.status_code == 400
+    assert res_missing_id.get_json()["ok"] is False
+    assert res_missing_id.get_json()["error"] == "missing level_id"
+
+    res_invalid_lvl = client.post("/api/v1/submit", json={"level_id": "99999", "attempt": "test"})
+    assert res_invalid_lvl.status_code == 404
+    assert res_invalid_lvl.get_json()["ok"] is False
+    assert res_invalid_lvl.get_json()["error"] == "invalid level"

@@ -58,7 +58,7 @@ source venv/bin/activate
    http://127.0.0.1:5050/web
    ```
 
-Optional API endpoints:
+Optional API endpoints (see [API Documentation](docs/API.md)):
 
 - `/api/v1/levels`
 - `/api/v1/level/<id>`
