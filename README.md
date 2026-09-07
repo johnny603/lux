@@ -1,4 +1,5 @@
 # Interactive Puzzle Server + Agent
+An Open Source, free for all game!
 
 ## Overview
 
