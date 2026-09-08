@@ -121,6 +121,10 @@ PYTHONPATH=. pytest -q
 - DevOps: Docker, Git, CI/CD, and cloud fundamentals
 - Every puzzle includes `category`, `difficulty`, and `tags` metadata for filtering in the agent and future UI work
 
+## Mobile Client
+
+A cross-platform mobile catalog client built with Flutter is available in [`mobile/`](mobile/README.md). It connects to the Lux REST API (`GET /api/v1/levels`) to browse puzzle metadata with search, category filtering, and configurable host settings. See [`mobile/README.md`](mobile/README.md) for setup and testing instructions.
+
 ## Next steps
 
 - Add more levels with staged tasks and progressive hints.
