@@ -98,7 +98,9 @@ mobile/
 │   ├── models/
 │   │   └── level.dart                 # Level model, JSON parsing & serialization
 │   ├── screens/
-│   │   └── catalog_screen.dart        # Main catalog UI with search & category filters
+│   │   └── catalog_screen.dart        # Main catalog View in MVVM (reactive ListenableBuilder)
+│   ├── viewmodels/
+│   │   └── catalog_viewmodel.dart     # Catalog ViewModel (ChangeNotifier state & filtering)
 │   ├── services/
 │   │   └── lux_api_service.dart       # HTTP client and custom exceptions
 │   └── widgets/
@@ -108,6 +110,8 @@ mobile/
 ├── test/
 │   ├── models/
 │   │   └── level_test.dart            # Level model parsing and equality tests
+│   ├── viewmodels/
+│   │   └── catalog_viewmodel_test.dart# ViewModel unit tests (state transitions & filtering)
 │   ├── screens/
 │   │   └── catalog_screen_test.dart   # Catalog UI state & interaction widget tests
 │   ├── services/
@@ -116,3 +120,11 @@ mobile/
 ├── pubspec.yaml                       # Flutter dependencies & metadata
 └── README.md                          # Mobile client documentation
 ```
+
+### Architectural Pattern: MVVM
+The application strictly follows the **Model-View-ViewModel (MVVM)** pattern:
+- **Model** (`models/`): Strongly typed domain objects (`Level`) with robust JSON deserialization and validation.
+- **View** (`screens/`, `widgets/`): Declarative Flutter widgets reacting to ViewModel updates via `ListenableBuilder`, keeping presentation clean and decoupled from business logic.
+- **ViewModel** (`viewmodels/`): `ChangeNotifier` classes that encapsulate UI state (`CatalogViewState`), search/category filtering computations, and orchestrate network requests via the service layer. 100% unit-tested independently of the widget tree.
+- **Services** (`services/`): API communication layer managing timeouts, status codes, and user-actionable network errors.
+

@@ -1,143 +1,119 @@
 import 'package:flutter/material.dart';
 import '../models/level.dart';
 import '../services/lux_api_service.dart';
+import '../viewmodels/catalog_viewmodel.dart';
 import '../widgets/level_card.dart';
 import '../widgets/server_config_dialog.dart';
 import '../widgets/state_views.dart';
 
-/// Main screen displaying the Lux puzzle catalog.
+/// Main screen displaying the Lux puzzle catalog, representing the View layer in MVVM.
+///
+/// Binds reactively to [CatalogViewModel] for state management and presentation logic.
 class CatalogScreen extends StatefulWidget {
-  final LuxApiService apiService;
+  final LuxApiService? apiService;
+  final CatalogViewModel? viewModel;
 
   const CatalogScreen({
     super.key,
-    required this.apiService,
-  });
+    this.apiService,
+    this.viewModel,
+  }) : assert(apiService != null || viewModel != null,
+            'Either apiService or viewModel must be provided');
 
   @override
   State<CatalogScreen> createState() => _CatalogScreenState();
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  List<Level> _levels = [];
-  bool _isLoading = true;
-  String? _errorMessage;
-  String _searchQuery = '';
-  String _selectedCategory = 'All';
+  late final CatalogViewModel _viewModel;
+  late final bool _ownsViewModel;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
-    _loadLevels();
+    if (widget.viewModel != null) {
+      _viewModel = widget.viewModel!;
+      _ownsViewModel = false;
+    } else {
+      _viewModel = CatalogViewModel(apiService: widget.apiService!);
+      _ownsViewModel = true;
+    }
+
+    _searchController.text = _viewModel.searchQuery;
+
+    // Trigger initial fetch if view model is still in initial state.
+    if (_viewModel.state == CatalogViewState.initial) {
+      _viewModel.loadLevels();
+    }
   }
 
-  Future<void> _loadLevels() async {
-    setState(() {
-      _isLoading = true;
-      _errorMessage = null;
-    });
-
-    try {
-      final levels = await widget.apiService.fetchLevels();
-      if (!mounted) return;
-      setState(() {
-        _levels = levels;
-        _isLoading = false;
-        _errorMessage = null;
-      });
-    } on LuxApiException catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = e.message;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'An unexpected error occurred: $e';
-      });
+  @override
+  void dispose() {
+    _searchController.dispose();
+    if (_ownsViewModel) {
+      _viewModel.dispose();
     }
+    super.dispose();
   }
 
   void _openServerConfigDialog() {
     showDialog(
       context: context,
       builder: (ctx) => ServerConfigDialog(
-        currentBaseUrl: widget.apiService.baseUrl,
+        currentBaseUrl: _viewModel.baseUrl,
         onSave: (newUrl) {
-          widget.apiService.baseUrl = newUrl;
-          _loadLevels();
+          _viewModel.updateBaseUrl(newUrl);
         },
       ),
     );
-  }
-
-  List<String> _getCategories() {
-    final categories = <String>{'All'};
-    for (final level in _levels) {
-      if (level.category.isNotEmpty) {
-        categories.add(level.category);
-      }
-    }
-    return categories.toList();
-  }
-
-  List<Level> _getFilteredLevels() {
-    return _levels.where((level) {
-      final matchesCategory =
-          _selectedCategory == 'All' || level.category == _selectedCategory;
-
-      final query = _searchQuery.trim().toLowerCase();
-      final matchesQuery = query.isEmpty ||
-          level.title.toLowerCase().contains(query) ||
-          level.description.toLowerCase().contains(query) ||
-          level.id.toLowerCase().contains(query) ||
-          level.tags.any((t) => t.toLowerCase().contains(query));
-
-      return matchesCategory && matchesQuery;
-    }).toList();
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final filteredLevels = _getFilteredLevels();
-    final categories = _getCategories();
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Lux Puzzle Catalog',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+    return ListenableBuilder(
+      listenable: _viewModel,
+      builder: (context, _) {
+        final filteredLevels = _viewModel.filteredLevels;
+        final categories = _viewModel.categories;
+
+        return Scaffold(
+          appBar: AppBar(
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Lux Puzzle Catalog',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18),
+                ),
+                Text(
+                  _viewModel.baseUrl,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
-            Text(
-              widget.apiService.baseUrl,
-              style: theme.textTheme.labelSmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
+            actions: [
+              IconButton(
+                tooltip: 'Server Settings',
+                icon: const Icon(Icons.dns_rounded),
+                onPressed: _openServerConfigDialog,
               ),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            tooltip: 'Server Settings',
-            icon: const Icon(Icons.dns_rounded),
-            onPressed: _openServerConfigDialog,
+              IconButton(
+                tooltip: 'Refresh',
+                icon: const Icon(Icons.refresh_rounded),
+                onPressed: _viewModel.isLoading ? null : _viewModel.refresh,
+              ),
+            ],
           ),
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _isLoading ? null : _loadLevels,
-          ),
-        ],
-      ),
-      body: _buildBody(context, filteredLevels, categories),
+          body: _buildBody(context, filteredLevels, categories),
+        );
+      },
     );
   }
 
@@ -146,23 +122,23 @@ class _CatalogScreenState extends State<CatalogScreen> {
     List<Level> filteredLevels,
     List<String> categories,
   ) {
-    if (_isLoading) {
+    if (_viewModel.isLoading) {
       return const LoadingView();
     }
 
-    if (_errorMessage != null) {
+    if (_viewModel.hasError) {
       return ErrorView(
-        message: _errorMessage!,
-        onRetry: _loadLevels,
+        message: _viewModel.errorMessage ?? 'An error occurred',
+        onRetry: _viewModel.loadLevels,
         onConfigureServer: _openServerConfigDialog,
       );
     }
 
-    if (_levels.isEmpty) {
+    if (_viewModel.isEmpty) {
       return EmptyView(
         title: 'Catalog is Empty',
         message: 'The Lux server returned no puzzles.',
-        onRefresh: _loadLevels,
+        onRefresh: _viewModel.loadLevels,
       );
     }
 
@@ -172,16 +148,16 @@ class _CatalogScreenState extends State<CatalogScreen> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
           child: TextField(
+            controller: _searchController,
             decoration: InputDecoration(
               hintText: 'Search puzzles, tags, id...',
               prefixIcon: const Icon(Icons.search),
-              suffixIcon: _searchQuery.isNotEmpty
+              suffixIcon: _viewModel.searchQuery.isNotEmpty
                   ? IconButton(
                       icon: const Icon(Icons.clear),
                       onPressed: () {
-                        setState(() {
-                          _searchQuery = '';
-                        });
+                        _searchController.clear();
+                        _viewModel.setSearchQuery('');
                       },
                     )
                   : null,
@@ -191,9 +167,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
               ),
             ),
             onChanged: (val) {
-              setState(() {
-                _searchQuery = val;
-              });
+              _viewModel.setSearchQuery(val);
             },
           ),
         ),
@@ -209,14 +183,12 @@ class _CatalogScreenState extends State<CatalogScreen> {
               separatorBuilder: (_, _) => const SizedBox(width: 8),
               itemBuilder: (context, index) {
                 final category = categories[index];
-                final isSelected = _selectedCategory == category;
+                final isSelected = _viewModel.selectedCategory == category;
                 return FilterChip(
                   label: Text(category),
                   selected: isSelected,
                   onSelected: (selected) {
-                    setState(() {
-                      _selectedCategory = category;
-                    });
+                    _viewModel.setSelectedCategory(category);
                   },
                 );
               },
@@ -254,7 +226,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
                   ),
                 )
               : RefreshIndicator(
-                  onRefresh: _loadLevels,
+                  onRefresh: _viewModel.refresh,
                   child: ListView.builder(
                     padding: const EdgeInsets.only(bottom: 24, top: 4),
                     itemCount: filteredLevels.length,
