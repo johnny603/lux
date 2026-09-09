@@ -182,6 +182,127 @@ class LuxApiService {
     }
   }
 
+  /// Fetches a single puzzle level by its [id] from `/api/v1/level/<id>`.
+  Future<Level> fetchLevel(String id, {String? customBaseUrl}) async {
+    final effectiveBaseUrl = customBaseUrl != null
+        ? _normalizeBaseUrl(customBaseUrl)
+        : _baseUrl;
+
+    final Uri uri;
+    try {
+      uri = Uri.parse('$effectiveBaseUrl/api/v1/level/$id');
+    } catch (e) {
+      throw LuxFormatException(
+        message: 'Invalid URL for level $id: $effectiveBaseUrl',
+        details: e,
+      );
+    }
+
+    try {
+      final response = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(timeout);
+
+      if (response.statusCode != 200) {
+        throw LuxHttpException(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+        );
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return Level.fromJson(decoded);
+      } else if (decoded is Map) {
+        return Level.fromJson(Map<String, dynamic>.from(decoded));
+      }
+      throw const LuxFormatException(
+        message: 'Expected a JSON object for level details.',
+      );
+    } on LuxApiException {
+      rethrow;
+    } catch (e) {
+      throw LuxNetworkException(
+        serverUrl: effectiveBaseUrl,
+        details: e,
+      );
+    }
+  }
+
+  /// Submits a solution attempt to `/api/v1/submit`.
+  /// Returns a boolean indicating if the attempt was correct.
+  Future<Map<String, dynamic>> submitAttempt({
+    required String levelId,
+    String? attempt,
+    Map<String, String>? files,
+    String? authToken,
+    String? customBaseUrl,
+  }) async {
+    final effectiveBaseUrl = customBaseUrl != null
+        ? _normalizeBaseUrl(customBaseUrl)
+        : _baseUrl;
+
+    final uri = Uri.parse('$effectiveBaseUrl/api/v1/submit');
+    final payload = <String, dynamic>{
+      'level_id': levelId,
+      if (attempt != null) 'attempt': attempt,
+      if (files != null) 'files': files,
+    };
+
+    try {
+      final response = await _client
+          .post(
+            uri,
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              if (authToken != null) 'Authorization': 'Bearer $authToken',
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(timeout);
+
+      if (response.statusCode != 200) {
+        throw LuxHttpException(
+          statusCode: response.statusCode,
+          responseBody: response.body,
+        );
+      }
+
+      final dynamic decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      } else if (decoded is Map) {
+        return Map<String, dynamic>.from(decoded);
+      }
+      return {'correct': false, 'raw': decoded};
+    } on LuxApiException {
+      rethrow;
+    } catch (e) {
+      throw LuxNetworkException(
+        serverUrl: effectiveBaseUrl,
+        details: e,
+      );
+    }
+  }
+
+  /// Checks the service status via `/health`.
+  Future<bool> checkHealth({String? customBaseUrl}) async {
+    final effectiveBaseUrl = customBaseUrl != null
+        ? _normalizeBaseUrl(customBaseUrl)
+        : _baseUrl;
+
+    try {
+      final uri = Uri.parse('$effectiveBaseUrl/health');
+      final response = await _client
+          .get(uri, headers: {'Accept': 'application/json'})
+          .timeout(const Duration(seconds: 3));
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Closes the underlying HTTP client.
   void dispose() {
     _client.close();

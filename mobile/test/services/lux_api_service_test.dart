@@ -151,5 +151,61 @@ void main() {
       await service.fetchLevels();
       expect(requestedUrl, 'http://10.0.2.2:5050/api/v1/levels');
     });
+
+    test('fetchLevel parses single level successfully on HTTP 200', () async {
+      final mockData = {
+        'id': '1',
+        'title': 'C Basics',
+        'description': 'Introductory level',
+        'hint': 'Check main signature',
+        'validator': 'equals',
+        'category': 'Basics',
+        'difficulty': 'easy',
+        'tags': ['c', 'beginner'],
+      };
+
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/level/1') {
+          return http.Response(jsonEncode(mockData), 200);
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final service = LuxApiService(client: client);
+      final level = await service.fetchLevel('1');
+
+      expect(level.id, '1');
+      expect(level.title, 'C Basics');
+    });
+
+    test('submitAttempt posts payload to /api/v1/submit and returns result', () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/api/v1/submit') {
+          final body = jsonDecode(request.body);
+          if (body['level_id'] == '1' && body['attempt'] == '-a') {
+            return http.Response(jsonEncode({'correct': true}), 200);
+          }
+          return http.Response(jsonEncode({'correct': false}), 200);
+        }
+        return http.Response('Not Found', 404);
+      });
+
+      final service = LuxApiService(client: client);
+      final result = await service.submitAttempt(levelId: '1', attempt: '-a');
+      expect(result['correct'], true);
+    });
+
+    test('checkHealth returns true on HTTP 200', () async {
+      final client = MockClient((request) async {
+        if (request.url.path == '/health') {
+          return http.Response('OK', 200);
+        }
+        return http.Response('Not OK', 500);
+      });
+
+      final service = LuxApiService(client: client);
+      final isHealthy = await service.checkHealth();
+      expect(isHealthy, true);
+    });
   });
 }
