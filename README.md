@@ -127,3 +127,7 @@ PYTHONPATH=. pytest -q
 - Implement an interactive web UI.
 - Add secure sandbox execution for C compilation and run (via Firecracker, gVisor, or chrooted containers).
 - See [docs/MENTORSHIP_ISSUES.md](docs/MENTORSHIP_ISSUES.md) for scoped starter contributions.
+
+## Connect
+[Discord](https://discord.gg/bXK4KFY3n)
+
