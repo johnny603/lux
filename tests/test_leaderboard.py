@@ -2,17 +2,15 @@ import leaderboard
 
 
 def test_safe_profile_name():
- 
+
     state = {"profile": None}
     assert leaderboard._safe_profile_name(state) == "Learner"
 
-   
     state_empty = {}
     assert leaderboard._safe_profile_name(state_empty) == "Learner"
 
     state_valid = {"profile": {"display_name": "ABC"}}
     assert leaderboard._safe_profile_name(state_valid) == "ABC"
-
 
     state_whitespace = {"profile": {"display_name": "   "}}
     assert leaderboard._safe_profile_name(state_whitespace) == "Learner"
@@ -26,7 +24,6 @@ def test_get_leaderboard():
         "game": {"xp": 150},
     }
 
-
     result_solved = leaderboard.get_leaderboard(state)
     assert result_solved["metric"] == "solved_count"
     assert len(result_solved["entries"]) == 1
@@ -38,12 +35,10 @@ def test_get_leaderboard():
     assert entry["xp"] == 150
     assert entry["score"] == 2.0
 
-
     result_streak = leaderboard.get_leaderboard(state, metric="streak")
     assert result_streak["metric"] == "streak"
     assert result_streak["entries"][0]["score"] == 5.0
 
-    
     result_xp = leaderboard.get_leaderboard(state, metric="xp")
     assert result_xp["metric"] == "xp"
     assert result_xp["entries"][0]["score"] == 150.0
