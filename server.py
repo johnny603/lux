@@ -836,4 +836,12 @@ def validate(puzzle, attempt, files):
 
 
 if __name__ == "__main__":
+    db_path = storage.default_db_path()
+    try:
+        applied = storage.apply_migrations(db_path)
+        if applied:
+            print(f"Applied {len(applied)} database migration(s): {', '.join(applied)}")
+    except Exception as e:
+        print(f"Warning: Failed to apply database migrations: {e}")
     app.run(host="127.0.0.1", port=5050, debug=False)
+
