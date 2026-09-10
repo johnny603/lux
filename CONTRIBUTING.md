@@ -247,8 +247,8 @@ Use the provided issue templates whenever possible.
 
 ## Code of Conduct
 
-Be respectful and constructive.
+This project follows the [Contributor Covenant Code of Conduct](CODE_OF_CONDUCT.md).
 
-We welcome contributors of all experience levels and encourage collaboration, learning, and knowledge sharing.
+Be respectful and constructive. We welcome contributors of all experience levels and encourage collaboration, learning, and knowledge sharing.
 
 Thank you for helping improve Lux!
