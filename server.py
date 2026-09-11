@@ -648,11 +648,57 @@ def api_room_unlock(room_id):
             ),
             403,
         )
+
+    # If the room has a time limit and player is unlocking/entering, start timer if needed
+    time_limit = r.get("time_limit_seconds")
+    if time_limit and room_id not in escaped_rooms:
+        storage.start_room_timer(state, room_id, time_limit)
+        storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+
     return response(
         True,
         room_id=room_id,
         unlocked=True,
+        timer=timer_info,
         message=f"Room {room_id} is unlocked and accessible.",
+    )
+
+
+@app.route("/api/v1/rooms/<room_id>/reset", methods=["POST"])
+@csrf.exempt
+def api_room_reset(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    if room_id in escaped_rooms:
+        return response(False, error="Room already escaped and completed."), 400
+
+    # Reset timer and restart if timed room
+    storage.reset_room_timer(state, room_id)
+    time_limit = r.get("time_limit_seconds")
+    if time_limit:
+        storage.start_room_timer(state, room_id, time_limit)
+    storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+    return response(
+        True,
+        room_id=room_id,
+        reset=True,
+        timer=timer_info,
+        message=f"Room {room_id} has been reset.",
     )
 
 

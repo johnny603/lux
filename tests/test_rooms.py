@@ -96,3 +96,59 @@ def test_cli_examine_formatting():
     examined = cli.examine_object(objs[0])
     assert "=== Flickering Terminal ===" in examined
     assert "Actions:" in examined
+
+
+def test_timed_escape_pressure(client):
+    from datetime import datetime, timedelta, timezone
+
+    # Check room-2 timer initial state
+    res = client.get("/api/v1/rooms/room-2")
+    assert res.status_code == 200
+    rdata = res.get_json()
+    assert rdata["time_limit_seconds"] == 300
+
+    # Room-1 escape unlocks room-2
+    state = storage.load_state()
+    storage.mark_room_escaped(state, "room-1")
+    storage.save_state(state)
+
+    # Unlock / Enter room-2 starts timer
+    res_unlock = client.post("/api/v1/rooms/room-2/unlock")
+    assert res_unlock.status_code == 200
+    udata = res_unlock.get_json()
+    assert udata["unlocked"] is True
+    assert udata["timer"] is not None
+    assert udata["timer"]["time_limit_seconds"] == 300
+    assert udata["timer"]["is_expired"] is False
+
+    # Simulate expired timer
+    state = storage.load_state()
+    past_iso = (datetime.now(timezone.utc) - timedelta(seconds=350)).isoformat()
+    state["game"]["room_timers"]["room-2"]["started_at"] = past_iso
+    storage.save_state(state)
+
+    # Room-2 should now report expired and be locked
+    res_expired = client.get("/api/v1/rooms/room-2")
+    assert res_expired.status_code == 200
+    ex_data = res_expired.get_json()
+    assert ex_data["status"] == "expired"
+    assert ex_data["is_unlocked"] is False
+    assert ex_data["is_expired"] is True
+    assert "Reset room" in ex_data["unlock_instruction"]
+
+    # Unlock attempt fails when expired
+    res_fail_unlock = client.post("/api/v1/rooms/room-2/unlock")
+    assert res_fail_unlock.status_code == 403
+
+    # Reset room-2 restores timer
+    res_reset = client.post("/api/v1/rooms/room-2/reset")
+    assert res_reset.status_code == 200
+    reset_data = res_reset.get_json()
+    assert reset_data["ok"] is True
+    assert reset_data["timer"]["is_expired"] is False
+    assert reset_data["timer"]["remaining_seconds"] > 290
+
+    # Format timer CLI check
+    timer_str = cli.format_room_timer(reset_data["timer"])
+    assert "remaining" in timer_str
+    assert "300s" in timer_str

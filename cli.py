@@ -153,3 +153,13 @@ def examine_object(obj: Dict) -> str:
         for t in triggers:
             lines.append(f"  - [{t.get('action')}]: {t.get('message')}")
     return "\n".join(lines)
+
+
+def format_room_timer(timer_info: Optional[Dict]) -> str:
+    if not timer_info or not timer_info.get("time_limit_seconds"):
+        return "No active countdown limit."
+    limit = timer_info.get("time_limit_seconds")
+    rem = timer_info.get("remaining_seconds", 0)
+    if timer_info.get("is_expired"):
+        return f"⏱️ TIME EXPIRED! ({limit}s limit exceeded. Reset room to retry)."
+    return f"⏱️ {rem}s remaining (Time limit: {limit}s)"

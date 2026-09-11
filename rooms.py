@@ -13,6 +13,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "The door is sealed by a basic terminal lock."
         ),
         "difficulty": 1,
+        "time_limit_seconds": None,
         "locked": False,
         "required_previous_room": None,
         "unlock_condition": {
@@ -84,6 +85,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "A build pipeline must execute cleanly."
         ),
         "difficulty": 2,
+        "time_limit_seconds": 300,
         "locked": True,
         "required_previous_room": "room-1",
         "unlock_condition": {
@@ -142,6 +144,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "Large storage files are blocking the ventilation shaft."
         ),
         "difficulty": 2,
+        "time_limit_seconds": 240,
         "locked": True,
         "required_previous_room": "room-2",
         "unlock_condition": {
@@ -200,6 +203,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "requires precise security octal modes."
         ),
         "difficulty": 3,
+        "time_limit_seconds": 180,
         "locked": True,
         "required_previous_room": "room-3",
         "unlock_condition": {
@@ -241,6 +245,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "You need to provide the ultimate answer to escape to freedom."
         ),
         "difficulty": 4,
+        "time_limit_seconds": 120,
         "locked": True,
         "required_previous_room": "room-4",
         "unlock_condition": {
@@ -387,10 +392,21 @@ def is_room_unlocked(
     state: Optional[Dict[str, Any]] = None,
 ) -> bool:
     """Determine whether a room is unlocked based on default locked status and unlock condition."""
+    escaped_set = set(escaped_rooms)
+
+    # Check if timer has expired on a timed room
+    if state and room.get("time_limit_seconds") and room["id"] not in escaped_set:
+        import storage
+
+        timer = storage.get_room_timer(
+            state, room["id"], default_limit=room.get("time_limit_seconds")
+        )
+        if timer and timer.get("is_expired"):
+            return False
+
     if not room.get("locked", False):
         return True
 
-    escaped_set = set(escaped_rooms)
     req = room.get("required_previous_room")
     if req and req not in escaped_set:
         return False
@@ -410,8 +426,21 @@ def decorate_room(
     is_escaped = r["id"] in escaped_set
     unlocked = is_room_unlocked(r, escaped_set, state)
 
+    # Inspect timer status
+    timer_info = None
+    if state and r.get("time_limit_seconds"):
+        import storage
+
+        timer_info = storage.get_room_timer(
+            state, r["id"], default_limit=r.get("time_limit_seconds")
+        )
+
+    is_expired = bool(timer_info and timer_info.get("is_expired")) if not is_escaped else False
+
     if is_escaped:
         status = "escaped"
+    elif is_expired:
+        status = "expired"
     elif unlocked:
         status = "unlocked"
     else:
@@ -419,7 +448,9 @@ def decorate_room(
 
     unlock_info = r.get("unlock_condition") or {}
     unlock_desc = unlock_info.get("description")
-    if not unlock_desc:
+    if is_expired:
+        unlock_desc = f"Time limit expired ({r.get('time_limit_seconds')}s). Reset room to retry."
+    elif not unlock_desc:
         req = r.get("required_previous_room")
         if req:
             unlock_desc = f"Complete and escape {req} to unlock."
@@ -428,7 +459,9 @@ def decorate_room(
 
     r["is_unlocked"] = unlocked
     r["is_escaped"] = is_escaped
+    r["is_expired"] = is_expired
     r["status"] = status
+    r["timer"] = timer_info
     r["unlock_instruction"] = unlock_desc
     return r
 

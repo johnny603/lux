@@ -21,10 +21,12 @@
     {% for room in rooms %}
     <div class="col-md-6 col-lg-4">
         <div class="card h-100 border {% if room.is_escaped %}border-success bg-dark text-light{% elif room.is_unlocked %}border-primary bg-dark text-light{% else %}border-secondary bg-dark text-muted opacity-75{% endif %} shadow-sm">
-            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom {% if room.is_escaped %}border-success{% elif room.is_unlocked %}border-primary{% else %}border-secondary{% endif %}">
+            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom {% if room.is_escaped %}border-success{% elif room.is_expired %}border-danger{% elif room.is_unlocked %}border-primary{% else %}border-secondary{% endif %}">
                 <span class="fw-bold">{{ room.name }}</span>
                 {% if room.is_escaped %}
                 <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Escaped</span>
+                {% elif room.is_expired %}
+                <span class="badge bg-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i>Time Expired</span>
                 {% elif room.is_unlocked %}
                 <span class="badge bg-primary"><i class="bi bi-unlock-fill me-1"></i>Unlocked</span>
                 {% else %}
@@ -36,8 +38,25 @@
 
                 <div class="mb-3 small">
                     <div><strong>Difficulty:</strong> Tier {{ room.difficulty }}</div>
+                    {% if room.time_limit_seconds %}
+                    <div class="mt-1">
+                        <strong>Time Limit:</strong> 
+                        <span class="badge {% if room.is_expired %}bg-danger{% elif room.timer and room.timer.remaining_seconds < 30 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            <i class="bi bi-stopwatch me-1"></i>
+                            {% if room.is_escaped %}
+                            Completed in time
+                            {% elif room.timer %}
+                            <span class="countdown-timer" data-remaining="{{ room.timer.remaining_seconds }}" data-room-id="{{ room.id }}">
+                                {{ room.timer.remaining_seconds }}s remaining
+                            </span>
+                            {% else %}
+                            {{ room.time_limit_seconds }}s (starts on entry)
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
                     {% if room.escape_condition %}
-                    <div><strong>Objective:</strong> {{ room.escape_condition.description }}</div>
+                    <div class="mt-1"><strong>Objective:</strong> {{ room.escape_condition.description }}</div>
                     {% endif %}
                 </div>
 
@@ -84,8 +103,19 @@
                 <div class="mt-auto pt-2 border-top border-secondary">
                     {% if room.is_escaped %}
                     <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-outline-success btn-sm w-100">Review Puzzle #{{ room.escape_condition.puzzle_id }}</a>
+                    {% elif room.is_expired %}
+                    <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
+                    </button>
                     {% elif room.is_unlocked %}
-                    <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm w-100">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
+                    <div class="d-flex gap-2">
+                        <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm flex-grow-1" onclick="enterRoom('{{ room.id }}')">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
+                        {% if room.time_limit_seconds %}
+                        <button class="btn btn-outline-secondary btn-sm" title="Reset Room Timer" onclick="resetRoom('{{ room.id }}')">
+                            <i class="bi bi-arrow-counterclockwise"></i>
+                        </button>
+                        {% endif %}
+                    </div>
                     {% else %}
                     <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
                         <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
@@ -117,6 +147,32 @@
 </div>
 
 <script>
+function enterRoom(roomId) {
+    fetch(`/api/v1/rooms/${roomId}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    }).catch(console.error);
+}
+
+function resetRoom(roomId) {
+    fetch(`/api/v1/rooms/${roomId}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to reset room.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while resetting room.');
+    });
+}
+
 function interactObject(roomId, objectId, action) {
     fetch(`/api/v1/rooms/${roomId}/objects/${objectId}/interact`, {
         method: 'POST',
