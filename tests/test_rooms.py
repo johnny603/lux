@@ -152,3 +152,58 @@ def test_timed_escape_pressure(client):
     timer_str = cli.format_room_timer(reset_data["timer"])
     assert "remaining" in timer_str
     assert "300s" in timer_str
+
+
+def test_inventory_pickup_and_use(client):
+    # Check initial empty inventory
+    res_inv = client.get("/api/v1/inventory")
+    assert res_inv.status_code == 200
+    inv_data = res_inv.get_json()
+    assert inv_data["ok"] is True
+    assert inv_data["inventory"] == []
+
+    # Attempt to pickup static object fails
+    res_bad_pickup = client.post("/api/v1/rooms/room-1/objects/obj-flickering-terminal/pickup")
+    assert res_bad_pickup.status_code == 400
+
+    # Pickup pickupable object succeeds
+    res_pickup = client.post("/api/v1/rooms/room-1/objects/obj-brass-keycard/pickup")
+    assert res_pickup.status_code == 200
+    pdata = res_pickup.get_json()
+    assert pdata["ok"] is True
+    assert pdata["object_id"] == "obj-brass-keycard"
+    assert "obj-brass-keycard" in pdata["inventory"]
+
+    # Verify inventory endpoint reflects item
+    res_inv2 = client.get("/api/v1/inventory")
+    assert res_inv2.status_code == 200
+    inv2_data = res_inv2.get_json()
+    assert "obj-brass-keycard" in inv2_data["inventory"]
+    assert len(inv2_data["items"]) == 1
+    assert inv2_data["items"][0]["name"] == "Brass Keycard"
+
+    # Use item in valid target
+    res_use = client.post(
+        "/api/v1/rooms/room-1/objects/obj-brass-keycard/use",
+        json={"target_id": "obj-security-console"},
+    )
+    assert res_use.status_code == 200
+    udata = res_use.get_json()
+    assert udata["ok"] is True
+    assert udata["success"] is True
+    assert "swipe the Brass Keycard" in udata["message"]
+
+    # Use item not in inventory fails
+    res_use_missing = client.post(
+        "/api/v1/rooms/room-2/objects/obj-c-reference-manual/use"
+    )
+    assert res_use_missing.status_code == 400
+    assert "do not possess" in res_use_missing.get_json()["error"]
+
+    # Test CLI formatting
+    state = storage.load_state()
+    inv_ids = storage.get_inventory(state)
+    items = [rooms.find_object_across_rooms(i) for i in inv_ids]
+    formatted = cli.format_inventory(items)
+    assert "🎒 Player Inventory:" in formatted
+    assert "Brass Keycard" in formatted

@@ -52,13 +52,23 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
                 "name": "Brass Keycard",
                 "description": "An old magnetic keycard covered in dust.",
                 "is_pickupable": True,
+                "usable_on": ["room-1", "room-2", "obj-security-console"],
+                "use_effect": "Unlocks magnetic access panels across early facility chambers.",
                 "interaction_hint": "Pick up the keycard for secure room access.",
                 "triggers": [
                     {
                         "action": "pickup",
                         "message": "You picked up the Brass Keycard with intact magnetic stripe.",
                         "state_effect": "has_brass_keycard",
-                    }
+                    },
+                    {
+                        "action": "use",
+                        "message": (
+                            "You swipe the Brass Keycard. "
+                            "The security circuit chimes affirmatively."
+                        ),
+                        "state_effect": "keycard_swiped",
+                    },
                 ],
             },
             {
@@ -125,13 +135,22 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
                 "name": "K&R C Reference Guide",
                 "description": "A dog-eared copy of the classic C programming handbook.",
                 "is_pickupable": True,
+                "usable_on": ["room-2", "obj-compiler-workbench"],
+                "use_effect": "Provides exact compilation and syntax examples.",
                 "interaction_hint": "Take the manual with you for syntax lookup.",
                 "triggers": [
                     {
                         "action": "pickup",
                         "message": "Added K&R C Reference Guide to your knowledge tools.",
                         "state_effect": "has_c_manual",
-                    }
+                    },
+                    {
+                        "action": "use",
+                        "message": (
+                            "You consult the K&R Guide: 'gcc -o output source.c' is verified."
+                        ),
+                        "state_effect": "compiler_syntax_consulted",
+                    },
                 ],
             },
         ],
@@ -184,13 +203,23 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
                 "name": "Handheld Byte Scanner",
                 "description": "A digital tool used to verify block device sector sizes.",
                 "is_pickupable": True,
+                "usable_on": ["room-3", "obj-storage-rack"],
+                "use_effect": "Calibrates sector scan thresholds to locate >1MB blocks.",
                 "interaction_hint": "Pick up the byte scanner.",
                 "triggers": [
                     {
                         "action": "pickup",
                         "message": "Acquired Handheld Byte Scanner.",
                         "state_effect": "has_byte_scanner",
-                    }
+                    },
+                    {
+                        "action": "use",
+                        "message": (
+                            "You activate the Handheld Byte Scanner. "
+                            "High-density sectors pinpointed."
+                        ),
+                        "state_effect": "scanner_activated",
+                    },
                 ],
             },
         ],
@@ -314,6 +343,126 @@ def get_room_object(room_id: str, object_id: str) -> Optional[Dict[str, Any]]:
     return None
 
 
+def find_object_across_rooms(object_id: str) -> Optional[Dict[str, Any]]:
+    """Search all rooms for an object with the given ID."""
+    oid = str(object_id).strip()
+    for room in DEFAULT_ROOMS:
+        for obj in room.get("objects", []):
+            if obj["id"] == oid:
+                return copy.deepcopy(obj)
+    return None
+
+
+def pickup_object(
+    room_id: str,
+    object_id: str,
+    state: Dict[str, Any],
+) -> Optional[Dict[str, Any]]:
+    """Pick up a pickupable object in the given room and add to state inventory."""
+    import storage
+
+    obj = get_room_object(room_id, object_id)
+    if not obj:
+        return None
+
+    if not obj.get("is_pickupable", False):
+        return {
+            "room_id": room_id,
+            "object_id": object_id,
+            "object_name": obj.get("name"),
+            "success": False,
+            "error": f"The object '{obj.get('name')}' is fixed in place and cannot be picked up.",
+            "inventory": storage.get_inventory(state),
+        }
+
+    storage.add_inventory_item(state, object_id)
+    triggers = obj.get("triggers", [])
+    pickup_trigger = next((t for t in triggers if t.get("action") == "pickup"), None)
+    msg = (
+        pickup_trigger.get("message")
+        if pickup_trigger
+        else f"You collected {obj.get('name')} into your inventory."
+    )
+    effect = pickup_trigger.get("state_effect") if pickup_trigger else "item_collected"
+
+    return {
+        "room_id": room_id,
+        "object_id": object_id,
+        "object_name": obj.get("name"),
+        "success": True,
+        "message": msg,
+        "state_effect": effect,
+        "inventory": storage.get_inventory(state),
+    }
+
+
+def use_object(
+    room_id: str,
+    object_id: str,
+    target_id: Optional[str] = None,
+    state: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Use an inventory object in a room or against a specific target."""
+    import storage
+
+    if state is None:
+        state = storage.load_state()
+
+    obj = find_object_across_rooms(object_id)
+    if not obj:
+        return None
+
+    inventory = storage.get_inventory(state)
+    if object_id not in inventory:
+        return {
+            "room_id": room_id,
+            "object_id": object_id,
+            "object_name": obj.get("name"),
+            "success": False,
+            "error": f"You do not possess '{obj.get('name')}' in your inventory.",
+            "inventory": inventory,
+        }
+
+    usable_on = obj.get("usable_on", [])
+    target = target_id.strip() if target_id else room_id
+    is_valid_target = True
+    if usable_on:
+        is_valid_target = (room_id in usable_on) or (target in usable_on)
+
+    triggers = obj.get("triggers", [])
+    use_trigger = next((t for t in triggers if t.get("action") == "use"), None)
+
+    if not is_valid_target:
+        return {
+            "room_id": room_id,
+            "object_id": object_id,
+            "object_name": obj.get("name"),
+            "target_id": target,
+            "success": False,
+            "error": f"Cannot use '{obj.get('name')}' here or on target '{target}'.",
+            "inventory": inventory,
+        }
+
+    msg = (
+        use_trigger.get("message")
+        if use_trigger
+        else f"You used {obj.get('name')} successfully."
+    )
+    effect = use_trigger.get("state_effect") if use_trigger else "item_used"
+
+    return {
+        "room_id": room_id,
+        "object_id": object_id,
+        "object_name": obj.get("name"),
+        "target_id": target,
+        "success": True,
+        "message": msg,
+        "state_effect": effect,
+        "use_effect": obj.get("use_effect", ""),
+        "inventory": inventory,
+    }
+
+
 def interact_with_object(
     room_id: str,
     object_id: str,
@@ -326,6 +475,10 @@ def interact_with_object(
         return None
 
     action_clean = action.strip().lower() if action else "interact"
+
+    if action_clean == "pickup" and state is not None:
+        return pickup_object(room_id, object_id, state)
+
     triggers = obj.get("triggers", [])
     matched_trigger = None
 

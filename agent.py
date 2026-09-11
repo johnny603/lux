@@ -8,6 +8,7 @@ import cli
 import game_systems
 import leaderboard
 import learning_paths
+import rooms
 import storage
 
 SERVER = os.getenv("PUZZLE_SERVER", "http://127.0.0.1:5050")
@@ -310,6 +311,45 @@ def handle_level(choice):
 
 def _handle_menu_choice(choice, state, levels):
     lowered = choice.lower()
+    if lowered in ("inv", "inventory"):
+        inv_ids = storage.get_inventory(state)
+        items = [
+            rooms.find_object_across_rooms(iid) or {"id": iid, "name": iid, "description": ""}
+            for iid in inv_ids
+        ]
+        print(cli.format_inventory(items))
+        return True
+    if lowered.startswith("pickup ") or lowered.startswith("take "):
+        parts = choice.split(maxsplit=2)
+        if len(parts) >= 2:
+            obj_id = parts[1].strip()
+            room_id = parts[2].strip() if len(parts) > 2 else "room-1"
+            res = rooms.pickup_object(room_id, obj_id, state)
+            if res and res.get("success"):
+                storage.save_state(state)
+                print(f"✅ {res.get('message')}")
+            else:
+                print(f"❌ {res.get('error') if res else 'Object not found'}")
+        else:
+            print("Usage: pickup <object_id> [room_id]")
+        return True
+    if lowered.startswith("use "):
+        parts = choice.split(maxsplit=3)
+        if len(parts) >= 2:
+            obj_id = parts[1].strip()
+            target_id = parts[2].strip() if len(parts) > 2 else None
+            room_id = parts[3].strip() if len(parts) > 3 else "room-1"
+            res = rooms.use_object(room_id, obj_id, target_id=target_id, state=state)
+            if res and res.get("success"):
+                storage.save_state(state)
+                print(f"✨ {res.get('message')}")
+                if res.get("use_effect"):
+                    print(f"   Effect: {res.get('use_effect')}")
+            else:
+                print(f"❌ {res.get('error') if res else 'Object not found'}")
+        else:
+            print("Usage: use <object_id> [target] [room_id]")
+        return True
     if lowered in ("rooms", "escape-rooms", "escape"):
         try:
             r = requests.get(f"{SERVER}/api/v1/rooms", timeout=5)

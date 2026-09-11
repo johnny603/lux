@@ -155,6 +155,21 @@ def examine_object(obj: Dict) -> str:
     return "\n".join(lines)
 
 
+def format_inventory(inventory_items: Sequence[Dict]) -> str:
+    if not inventory_items:
+        return "Inventory is empty."
+    lines = ["🎒 Player Inventory:"]
+    for item in inventory_items:
+        usable = ""
+        if item.get("usable_on"):
+            usable = f" (Usable on: {', '.join(item.get('usable_on', []))})"
+        name = item.get("name", item.get("id", "Unknown"))
+        oid = item.get("id", "")
+        desc = item.get("description", "")
+        lines.append(f"  * {name} [{oid}]{usable}: {desc}")
+    return "\n".join(lines)
+
+
 def format_room_timer(timer_info: Optional[Dict]) -> str:
     if not timer_info or not timer_info.get("time_limit_seconds"):
         return "No active countdown limit."

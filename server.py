@@ -725,17 +725,71 @@ def api_room_object_interact(room_id, object_id):
     )
 
 
+@app.route("/api/v1/inventory", methods=["GET"])
+def api_inventory():
+    state = storage.load_state()
+    inv_ids = storage.get_inventory(state)
+    items = []
+    for iid in inv_ids:
+        obj = rooms.find_object_across_rooms(iid)
+        if obj:
+            items.append(obj)
+        else:
+            items.append({"id": iid, "name": iid, "description": ""})
+    return jsonify({"ok": True, "inventory": inv_ids, "items": items})
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/pickup", methods=["POST"])
+@csrf.exempt
+def api_room_object_pickup(room_id, object_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    res = rooms.pickup_object(room_id, object_id, state=state)
+    if not res:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    if not res.get("success"):
+        return response(False, error=res.get("error", "Cannot pickup object")), 400
+    storage.save_state(state)
+    return response(True, **res)
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/use", methods=["POST"])
+@csrf.exempt
+def api_room_object_use(room_id, object_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    data = (request.get_json(silent=True) or {}) if request.is_json else (request.form or {})
+    target_id = data.get("target_id") or data.get("target")
+    state = storage.load_state()
+    res = rooms.use_object(room_id, object_id, target_id=target_id, state=state)
+    if not res:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    if not res.get("success"):
+        return response(False, error=res.get("error", "Cannot use object")), 400
+    storage.save_state(state)
+    return response(True, **res)
+
+
 @app.route("/rooms", methods=["GET"])
 def web_rooms():
     state = storage.load_state()
     escaped = storage.get_escaped_rooms(state)
     summary = rooms.get_rooms_summary(escaped, state=state)
     escaped_count = len(escaped)
+    inventory_ids = storage.get_inventory(state)
+    inventory_items = [
+        rooms.find_object_across_rooms(iid) or {"id": iid, "name": iid, "description": ""}
+        for iid in inventory_ids
+    ]
     return render_template(
         "rooms.html",
         rooms=summary,
         escaped_count=escaped_count,
         total_rooms=len(summary),
+        inventory_items=inventory_items,
         game=storage.get_game_state(state),
         progress=storage.get_progress_summary(state, catalog_levels()),
     )

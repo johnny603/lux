@@ -82,6 +82,7 @@ def _default_game():
         "daily": {"last_challenge_date": None, "completed_dates": []},
         "adventure": {"current_world": None, "unlocked_worlds": [], "campaign_progress": {}},
         "escaped_rooms": [],
+        "inventory": [],
         "room_timers": {},
     }
 
@@ -182,6 +183,10 @@ def normalize_state(state):
     if not isinstance(escaped_rooms, list):
         escaped_rooms = []
     merged_game["escaped_rooms"] = [str(r) for r in escaped_rooms if r]
+    inventory = game.get("inventory", [])
+    if not isinstance(inventory, list):
+        inventory = []
+    merged_game["inventory"] = [str(i) for i in inventory if i]
     room_timers = game.get("room_timers", {})
     if not isinstance(room_timers, dict):
         room_timers = {}
@@ -422,6 +427,36 @@ def mark_room_escaped(state: dict, room_id: str) -> dict:
         escaped.append(rid)
     state.update(normalized)
     return state
+
+
+def get_inventory(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("inventory", []))
+
+
+def add_inventory_item(state: dict, object_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    inv = game.setdefault("inventory", [])
+    oid = str(object_id).strip()
+    if oid and oid not in inv:
+        inv.append(oid)
+    state.update(normalized)
+    return state
+
+
+def remove_inventory_item(state: dict, object_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    inv = game.setdefault("inventory", [])
+    oid = str(object_id).strip()
+    if oid in inv:
+        inv.remove(oid)
+    state.update(normalized)
+    return state
+
+
+def has_inventory_item(state: dict, object_id: str) -> bool:
+    return str(object_id).strip() in get_inventory(state)
 
 
 def start_room_timer(state: dict, room_id: str, time_limit_seconds: int) -> dict:
