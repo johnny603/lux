@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Lux - Escape Rooms & Interactive Objects{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h1 class="h2 mb-1"><i class="bi bi-door-open me-2 text-primary"></i>Escape Facility</h1>
+                <p class="text-muted mb-0">Explore connected chambers, examine interactive objects, solve technical puzzles, and escape to unlock next areas.</p>
+            </div>
+            <div class="badge bg-dark border border-secondary p-2 fs-6">
+                <i class="bi bi-shield-lock-fill text-warning me-1"></i> Escaped: <span class="text-success fw-bold">{{ escaped_count }}</span> / {{ total_rooms }} Rooms
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    {% for room in rooms %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 border {% if room.is_escaped %}border-success bg-dark text-light{% elif room.is_unlocked %}border-primary bg-dark text-light{% else %}border-secondary bg-dark text-muted opacity-75{% endif %} shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom {% if room.is_escaped %}border-success{% elif room.is_unlocked %}border-primary{% else %}border-secondary{% endif %}">
+                <span class="fw-bold">{{ room.name }}</span>
+                {% if room.is_escaped %}
+                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Escaped</span>
+                {% elif room.is_unlocked %}
+                <span class="badge bg-primary"><i class="bi bi-unlock-fill me-1"></i>Unlocked</span>
+                {% else %}
+                <span class="badge bg-secondary"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                {% endif %}
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="card-text small mb-3">{{ room.description }}</p>
+
+                <div class="mb-3 small">
+                    <div><strong>Difficulty:</strong> Tier {{ room.difficulty }}</div>
+                    {% if room.escape_condition %}
+                    <div><strong>Objective:</strong> {{ room.escape_condition.description }}</div>
+                    {% endif %}
+                </div>
+
+                {% if room.objects %}
+                <div class="mt-2 mb-3">
+                    <h6 class="text-info small fw-bold mb-2"><i class="bi bi-box-seam me-1"></i>Interactive Objects</h6>
+                    <div class="list-group list-group-flush">
+                        {% for obj in room.objects %}
+                        <div class="list-group-item bg-transparent text-light border-secondary p-2 rounded mb-1 bg-opacity-25 bg-black">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-semibold small text-warning">{{ obj.name }}</span>
+                                {% if obj.is_pickupable %}
+                                <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Takeable</span>
+                                {% endif %}
+                            </div>
+                            <p class="small text-secondary mb-1" style="font-size: 0.75rem;">{{ obj.description }}</p>
+                            <div class="d-flex gap-1 mt-1">
+                                <button class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'examine')">Examine</button>
+                                {% if obj.is_pickupable %}
+                                <button class="btn btn-outline-warning btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'pickup')">Pickup</button>
+                                {% else %}
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'interact')">Interact</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if room.hints %}
+                <div class="mb-3 small">
+                    <details>
+                        <summary class="text-info cursor-pointer">Room Hints ({{ room.hints|length }})</summary>
+                        <ul class="mt-2 ps-3 text-secondary mb-0">
+                            {% for hint in room.hints %}
+                            <li>{{ hint }}</li>
+                            {% endfor %}
+                        </ul>
+                    </details>
+                </div>
+                {% endif %}
+
+                <div class="mt-auto pt-2 border-top border-secondary">
+                    {% if room.is_escaped %}
+                    <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-outline-success btn-sm w-100">Review Puzzle #{{ room.escape_condition.puzzle_id }}</a>
+                    {% elif room.is_unlocked %}
+                    <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm w-100">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
+                    {% else %}
+                    <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
+                        <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal / Toast for object interaction feedback -->
+<div class="modal fade" id="objectModal" tabindex="-1" aria-labelledby="objectModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="objectModalLabel"><i class="bi bi-search me-2 text-warning"></i>Object Inspection</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="objectModalBody">
+        Loading...
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function interactObject(roomId, objectId, action) {
+    fetch(`/api/v1/rooms/${roomId}/objects/${objectId}/interact`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('objectModalLabel').innerHTML = `<i class="bi bi-search me-2 text-warning"></i>${data.object_name || 'Object'}`;
+            document.getElementById('objectModalBody').innerHTML = `
+                <p class="text-secondary small mb-2">${data.description || ''}</p>
+                <div class="alert alert-info py-2 small mb-0"><i class="bi bi-info-circle me-1"></i>${data.message || 'Action performed.'}</div>
+            `;
+            const modal = new bootstrap.Modal(document.getElementById('objectModal'));
+            modal.show();
+        } else {
+            alert(data.error || 'Failed to interact with object.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while interacting with object.');
+    });
+}
+</script>
+{% endblock %}
