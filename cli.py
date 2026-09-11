@@ -241,3 +241,62 @@ def format_adaptive_hints(hints_data: Optional[Dict]) -> str:
             cond = h.get("unlock_condition")
             lines.append(f"  [Level {lvl} - {lvl_tag}] 🔒 {h.get('text')} (Unlock: {cond})")
     return "\n".join(lines)
+
+
+def format_room_map(map_data: Dict) -> str:
+    """Format an ASCII representation of the facility room layout and player location."""
+    if not map_data or not map_data.get("rooms"):
+        return "Facility map unavailable."
+
+    rooms_list = map_data.get("rooms", [])
+    current_id = map_data.get("current_room_id")
+    escaped_set = set(map_data.get("escaped_rooms", []))
+
+    lines = [
+        "🗺️  === Facility Navigation Map ===",
+        f"📍 Current Location: {current_id} | Escaped: {len(escaped_set)}/{len(rooms_list)} Chambers",
+        "",
+    ]
+
+    # Render node chain representation
+    node_blocks = []
+    for r in sorted(rooms_list, key=lambda x: x.get("position", {}).get("x", 0)):
+        rid = r.get("id", "")
+        rname = r.get("name", "Chamber")
+        is_cur = rid == current_id
+        is_esc = rid in escaped_set
+        is_unl = r.get("is_unlocked", False)
+        is_exp = r.get("is_expired", False)
+
+        if is_esc:
+            badge = "✅ ESCAPED"
+        elif is_cur:
+            badge = "📍 YOU ARE HERE"
+        elif is_exp:
+            badge = "⏱️ EXPIRED"
+        elif is_unl:
+            badge = "🔓 UNLOCKED"
+        else:
+            badge = "🔒 LOCKED"
+
+        pos = r.get("position", {})
+        pos_tag = f"({pos.get('x', 0)},{pos.get('y', 0)})"
+        node_blocks.append(
+            f"+--------------------------------+\n"
+            f"| [{rid}] {rname[:20]:<20} |\n"
+            f"| Grid: {pos_tag:<6} Status: {badge:<13} |\n"
+            f"+--------------------------------+"
+        )
+
+    # Join with directional corridor connectors
+    corridor = "               ||\n               \\/ [Corridor]\n               ||\n"
+    lines.append(corridor.join(node_blocks))
+
+    # Add Connections Summary and Legend
+    lines.append("\n🔗 Room Corridors / Links:")
+    for conn in map_data.get("connections", []):
+        lines.append(f"  • {conn.get('from')} <===> {conn.get('to')}")
+
+    lines.append("\n🏷️ Legend: [📍 Current Room] [✅ Escaped] [🔓 Unlocked] [🔒 Locked] [⏱️ Expired]")
+    return "\n".join(lines)
+

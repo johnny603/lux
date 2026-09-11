@@ -299,3 +299,58 @@ def test_room_atmosphere_and_theming(client):
     assert "[CRT]" in atm_str
     assert "Visible Interactive Items:" in atm_str
     assert "Flickering Terminal" in atm_str
+
+
+def test_rooms_map_and_navigation(client):
+    # Test catalog model includes position coordinates and connected_rooms
+    all_rooms = rooms.get_all_rooms()
+    for rm in all_rooms:
+        assert "position" in rm
+        assert "x" in rm["position"]
+        assert "y" in rm["position"]
+        assert "connected_rooms" in rm
+        assert isinstance(rm["connected_rooms"], list)
+
+    # Test get_rooms_map internal logic
+    map_data = rooms.get_rooms_map()
+    assert "rooms" in map_data
+    assert "connections" in map_data
+    assert "current_room_id" in map_data
+    assert "grid" in map_data
+    assert len(map_data["rooms"]) == 5
+    assert len(map_data["connections"]) == 4
+    assert map_data["current_room_id"] == "room-1"
+
+    # Test GET /api/v1/rooms/map endpoint
+    res_map = client.get("/api/v1/rooms/map")
+    assert res_map.status_code == 200
+    m_json = res_map.get_json()
+    assert len(m_json["rooms"]) == 5
+    assert m_json["current_room_id"] == "room-1"
+    assert m_json["grid"]["total_rooms"] == 5
+    assert m_json["grid"]["escaped_count"] == 0
+
+    # Test GET /api/v1/rooms/map with custom current_room_id query parameter
+    res_custom = client.get("/api/v1/rooms/map?current_room_id=room-3")
+    assert res_custom.status_code == 200
+    assert res_custom.get_json()["current_room_id"] == "room-3"
+
+    # Test CLI ASCII map renderer
+    ascii_map = cli.format_room_map(map_data)
+    assert "Facility Navigation Map" in ascii_map
+    assert "Current Location: room-1" in ascii_map
+    assert "The Antechamber" in ascii_map
+    assert "The Compiler Laborat" in ascii_map
+    assert "YOU ARE HERE" in ascii_map
+    assert "LOCKED" in ascii_map
+    assert "room-1 <===> room-2" in ascii_map
+
+    # Test web /rooms page rendering SVG map elements
+    res_web = client.get("/rooms")
+    assert res_web.status_code == 200
+    html_text = res_web.get_data(as_text=True)
+    assert "Facility Navigation Map" in html_text
+    assert "facilitySvgMap" in html_text
+    assert "room-node" in html_text
+    assert "scrollToRoom" in html_text
+

@@ -613,6 +613,14 @@ def api_rooms():
     return jsonify(summary)
 
 
+@app.route("/api/v1/rooms/map", methods=["GET"])
+def api_rooms_map():
+    state = storage.load_state()
+    current_room_id = request.args.get("current_room_id")
+    map_data = rooms.get_rooms_map(state=state, current_room_id=current_room_id)
+    return jsonify(map_data)
+
+
 @app.route("/api/v1/rooms/<room_id>", methods=["GET"])
 def api_room_detail(room_id):
     r = rooms.get_room(room_id)
@@ -844,12 +852,14 @@ def web_rooms():
         rooms.find_object_across_rooms(iid) or {"id": iid, "name": iid, "description": ""}
         for iid in inventory_ids
     ]
+    map_data = rooms.get_rooms_map(state=state)
     return render_template(
         "rooms.html",
         rooms=summary,
         escaped_count=escaped_count,
         total_rooms=len(summary),
         inventory_items=inventory_items,
+        map_data=map_data,
         game=storage.get_game_state(state),
         progress=storage.get_progress_summary(state, catalog_levels()),
     )

@@ -38,6 +38,8 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         },
         "difficulty": 1,
         "time_limit_seconds": None,
+        "position": {"x": 0, "y": 1},
+        "connected_rooms": ["room-2"],
         "locked": False,
         "required_previous_room": None,
         "unlock_condition": {
@@ -164,6 +166,8 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         },
         "difficulty": 2,
         "time_limit_seconds": 300,
+        "position": {"x": 1, "y": 1},
+        "connected_rooms": ["room-1", "room-3"],
         "locked": True,
         "required_previous_room": "room-1",
         "unlock_condition": {
@@ -270,6 +274,8 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         },
         "difficulty": 2,
         "time_limit_seconds": 240,
+        "position": {"x": 2, "y": 1},
+        "connected_rooms": ["room-2", "room-4"],
         "locked": True,
         "required_previous_room": "room-2",
         "unlock_condition": {
@@ -375,6 +381,8 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         },
         "difficulty": 3,
         "time_limit_seconds": 180,
+        "position": {"x": 3, "y": 1},
+        "connected_rooms": ["room-3", "room-5"],
         "locked": True,
         "required_previous_room": "room-3",
         "unlock_condition": {
@@ -457,6 +465,8 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         },
         "difficulty": 4,
         "time_limit_seconds": 120,
+        "position": {"x": 4, "y": 1},
+        "connected_rooms": ["room-4"],
         "locked": True,
         "required_previous_room": "room-4",
         "unlock_condition": {
@@ -902,3 +912,58 @@ def get_rooms_summary(
 ) -> List[Dict[str, Any]]:
     """Return all rooms decorated with their current unlock/escape status."""
     return [decorate_room(room, escaped_rooms, state) for room in DEFAULT_ROOMS]
+
+
+def get_rooms_map(
+    state: Optional[Dict[str, Any]] = None,
+    current_room_id: Optional[str] = None,
+) -> Dict[str, Any]:
+    """Return room map structure with positions, connections, and unlock/escape statuses."""
+    import storage
+
+    if state is None:
+        state = storage.load_state()
+
+    escaped_rooms = storage.get_escaped_rooms(state)
+    decorated = get_rooms_summary(escaped_rooms, state=state)
+
+    # Determine default current room if not explicitly provided
+    # If not provided, find the first unlocked but unescaped room, or the last escaped room
+    if not current_room_id:
+        active_room = next(
+            (r["id"] for r in decorated if r.get("is_unlocked") and not r.get("is_escaped")),
+            None,
+        )
+        if not active_room and decorated:
+            active_room = decorated[-1]["id"]
+        current_room_id = active_room or "room-1"
+
+    connections = []
+    seen_edges = set()
+    for r in decorated:
+        for target in r.get("connected_rooms", []):
+            edge = tuple(sorted([r["id"], target]))
+            if edge not in seen_edges:
+                seen_edges.add(edge)
+                connections.append({"from": r["id"], "to": target})
+
+    xs = [r.get("position", {}).get("x", 0) for r in decorated if r.get("position")]
+    ys = [r.get("position", {}).get("y", 0) for r in decorated if r.get("position")]
+
+    grid = {
+        "min_x": min(xs) if xs else 0,
+        "max_x": max(xs) if xs else 0,
+        "min_y": min(ys) if ys else 0,
+        "max_y": max(ys) if ys else 0,
+        "total_rooms": len(decorated),
+        "escaped_count": len(escaped_rooms),
+    }
+
+    return {
+        "rooms": decorated,
+        "connections": connections,
+        "current_room_id": current_room_id,
+        "escaped_rooms": escaped_rooms,
+        "grid": grid,
+    }
+
