@@ -310,6 +310,49 @@ def handle_level(choice):
 
 def _handle_menu_choice(choice, state, levels):
     lowered = choice.lower()
+    if lowered in ("rooms", "escape-rooms", "escape"):
+        try:
+            r = requests.get(f"{SERVER}/api/v1/rooms", timeout=5)
+            if r.status_code == 200:
+                summary = r.json()
+                print("\n=== Escape Room Progression Map ===")
+                for rm in summary:
+                    st = rm.get("status")
+                    timer = rm.get("timer")
+                    timer_suffix = ""
+                    if timer and timer.get("time_limit_seconds"):
+                        t_sec = timer.get("time_limit_seconds")
+                        if timer.get("is_expired"):
+                            timer_suffix = f" [⏱️ EXPIRED - {t_sec}s limit]"
+                        else:
+                            rem = timer.get("remaining_seconds")
+                            timer_suffix = f" [⏱️ {rem}s remaining]"
+                    elif rm.get("time_limit_seconds"):
+                        timer_suffix = f" [⏱️ {rm.get('time_limit_seconds')}s limit]"
+
+                    if st == "escaped":
+                        status_icon = "🔓"
+                    elif st == "unlocked":
+                        status_icon = "🚪"
+                    elif st == "expired":
+                        status_icon = "⏰"
+                    else:
+                        status_icon = "🔒"
+
+                    r_name = rm.get('name')
+                    r_id = rm.get('id')
+                    print(f"[{status_icon}] {r_id}: {r_name} (Status: {st}){timer_suffix}")
+                    if st in ("locked", "expired"):
+                        print(f"     Lock Info: {rm.get('unlock_instruction')}")
+                    else:
+                        task_desc = rm.get("escape_condition", {}).get("description")
+                        print(f"     Objective: {task_desc}")
+                print("===================================\n")
+            else:
+                print("Could not retrieve escape rooms from server.")
+        except Exception as exc:
+            print("Escape rooms unavailable:", exc)
+        return True
     if lowered in ("ach", "achievements"):
         ach = state.get("achievements", {})
         if not ach:

@@ -9,6 +9,7 @@ import game_systems
 import leaderboard
 import learning_paths
 import puzzle_generator
+import rooms
 import storage
 from sandbox import DockerSandbox, get_runtime
 
@@ -602,6 +603,142 @@ def api_adventure():
 def api_daily():
     state = storage.load_state()
     return jsonify(game_systems.daily_challenge_status(state, catalog_levels()))
+
+
+@app.route("/api/v1/rooms", methods=["GET"])
+def api_rooms():
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped_rooms, state=state)
+    return jsonify(summary)
+
+
+@app.route("/api/v1/rooms/<room_id>", methods=["GET"])
+def api_room_detail(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    decorated = rooms.decorate_room(r, escaped_rooms, state=state)
+    return jsonify(decorated)
+
+
+@app.route("/api/v1/rooms/<room_id>/unlock", methods=["POST"])
+@csrf.exempt
+def api_room_unlock(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    unlocked = rooms.is_room_unlocked(r, escaped_rooms, state=state)
+    if not unlocked:
+        instruction = (r.get("unlock_condition") or {}).get(
+            "description", "Unlock condition not met."
+        )
+        return (
+            response(
+                False,
+                error="Room is locked",
+                room_id=room_id,
+                unlocked=False,
+                unlock_condition=r.get("unlock_condition"),
+                unlock_instruction=instruction,
+            ),
+            403,
+        )
+
+    # If the room has a time limit and player is unlocking/entering, start timer if needed
+    time_limit = r.get("time_limit_seconds")
+    if time_limit and room_id not in escaped_rooms:
+        storage.start_room_timer(state, room_id, time_limit)
+        storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+
+    return response(
+        True,
+        room_id=room_id,
+        unlocked=True,
+        timer=timer_info,
+        message=f"Room {room_id} is unlocked and accessible.",
+    )
+
+
+@app.route("/api/v1/rooms/<room_id>/reset", methods=["POST"])
+@csrf.exempt
+def api_room_reset(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    if room_id in escaped_rooms:
+        return response(False, error="Room already escaped and completed."), 400
+
+    # Reset timer and restart if timed room
+    storage.reset_room_timer(state, room_id)
+    time_limit = r.get("time_limit_seconds")
+    if time_limit:
+        storage.start_room_timer(state, room_id, time_limit)
+    storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+    return response(
+        True,
+        room_id=room_id,
+        reset=True,
+        timer=timer_info,
+        message=f"Room {room_id} has been reset.",
+    )
+
+
+@app.route("/api/v1/rooms/<room_id>/objects", methods=["GET"])
+def api_room_objects(room_id):
+    objs = rooms.get_room_objects(room_id)
+    if objs is None:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return jsonify(objs)
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/interact", methods=["POST"])
+@csrf.exempt
+def api_room_object_interact(room_id, object_id):
+    data = request.json or {}
+    action = (data.get("action") or "interact").strip().lower()
+    state = storage.load_state()
+    result = rooms.interact_with_object(room_id, object_id, action=action, state=state)
+    if not result:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return response(
+        True,
+        **result
+    )
+
+
+@app.route("/rooms", methods=["GET"])
+def web_rooms():
+    state = storage.load_state()
+    escaped = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped, state=state)
+    escaped_count = len(escaped)
+    return render_template(
+        "rooms.html",
+        rooms=summary,
+        escaped_count=escaped_count,
+        total_rooms=len(summary),
+        game=storage.get_game_state(state),
+        progress=storage.get_progress_summary(state, catalog_levels()),
+    )
 
 
 @app.route("/api/v1/puzzles/generate", methods=["POST"])
