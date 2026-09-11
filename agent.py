@@ -311,6 +311,34 @@ def handle_level(choice):
 
 def _handle_menu_choice(choice, state, levels):
     lowered = choice.lower()
+    if (
+        lowered.startswith("look")
+        or lowered.startswith("look around")
+        or lowered.startswith("inspect room")
+        or lowered.startswith("atmosphere")
+    ):
+        parts = choice.split(maxsplit=2)
+        room_id = "room-1"
+        if len(parts) >= 2 and parts[1].startswith("room-"):
+            room_id = parts[1].strip()
+        elif len(parts) >= 3 and parts[2].startswith("room-"):
+            room_id = parts[2].strip()
+        
+        # Try fetching from server or fallback to local room lookup
+        try:
+            r = requests.get(f"{SERVER}/api/v1/rooms/{room_id}", timeout=5)
+            if r.status_code == 200:
+                room_data = r.json()
+            else:
+                room_data = rooms.get_room(room_id)
+        except Exception:
+            room_data = rooms.get_room(room_id)
+            
+        if room_data:
+            print(cli.format_room_atmosphere(room_data))
+        else:
+            print(f"❌ Room '{room_id}' not found.")
+        return True
     if lowered in ("inv", "inventory"):
         inv_ids = storage.get_inventory(state)
         items = [

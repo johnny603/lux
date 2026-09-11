@@ -3,7 +3,7 @@ from __future__ import annotations
 import copy
 from typing import Any, Dict, List, Optional
 
-# Default room catalog with interactive objects, triggers, hints, and progression
+# Default room catalog with interactive objects, triggers, hints, progression, atmosphere & themes
 DEFAULT_ROOMS: List[Dict[str, Any]] = [
     {
         "id": "room-1",
@@ -12,6 +12,30 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "A dimly lit room with flickering monitors. "
             "The door is sealed by a basic terminal lock."
         ),
+        "theme": "cyberpunk-terminal",
+        "atmosphere": {
+            "sights": (
+                "Phosphor-green CRT glare reflecting against damp "
+                "concrete and tangled ribbon cables."
+            ),
+            "sounds": (
+                "A steady electrical hum punctuated by the intermittent click of cooling relays."
+            ),
+            "smells": "Faint ozone and warm silicon dust from decades of continuous uptime.",
+            "ambient_text": (
+                "You stand in the entrance vestibule. Phosphor-green light spills from a "
+                "solitary CRT terminal across scuffed floor tiles. Cold air circulates from "
+                "an overhead vent, and distant whisper of cooling fans echoes down the corridor."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [CRT]       [FUSE]          |\n"
+                "|  ||           ||            |\n"
+                "|                             |\n"
+                "| [KEYCARD]         [DOOR: #1]| \n"
+                "+-----------------------------+"
+            ),
+        },
         "difficulty": 1,
         "time_limit_seconds": None,
         "locked": False,
@@ -110,6 +134,34 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "Shelves of punch cards and C code listings line the walls. "
             "A build pipeline must execute cleanly."
         ),
+        "theme": "abandoned-lab",
+        "atmosphere": {
+            "sights": (
+                "Yellowed tractor-feed paper cascading from wire racks "
+                "and blinking status LEDs on rackmount nodes."
+            ),
+            "sounds": (
+                "Rhythmic clatter of punch card readers and the "
+                "rapid whir of a cooling turbine spinning up."
+            ),
+            "smells": (
+                "Aged paper, machine lubricant, and clean dry airflow "
+                "from pressurized server racks."
+            ),
+            "ambient_text": (
+                "You step into an industrial build lab. Workbenches overflow with disassembled "
+                "tape drives and binder copies of ANSI C specifications. A compiler console "
+                "waits in standby mode, ready to build source code into an executable door trigger."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [WORKSTATION]   [PUNCHCARDS]|\n"
+                "|      ||             ||      |\n"
+                "|                             |\n"
+                "| [K&R MANUAL]      [GATE: #2]|\n"
+                "+-----------------------------+"
+            ),
+        },
         "difficulty": 2,
         "time_limit_seconds": 300,
         "locked": True,
@@ -152,8 +204,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
                     {
                         "action": "examine",
                         "message": (
-                            "Toolchain status: gcc 13.2.0 ready. "
-                            "Target: hello.c -> hello binary."
+                            "Toolchain status: gcc 13.2.0 ready. Target: hello.c -> hello binary."
                         ),
                         "state_effect": "workbench_ready",
                     }
@@ -191,6 +242,32 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "Gigantic disk arrays hum in the dark. "
             "Large storage files are blocking the ventilation shaft."
         ),
+        "theme": "ancient-tomb-vault",
+        "atmosphere": {
+            "sights": (
+                "Monolithic drive cages stretching to high ceilings, their "
+                "blue activity strobes flickering like torches."
+            ),
+            "sounds": (
+                "Deep low-frequency reverberations from spinning magnetic "
+                "platters and actuator heads seeking sectors."
+            ),
+            "smells": "Chilled air and anti-static floor coating with a touch of metal oxide.",
+            "ambient_text": (
+                "The archive vault opens into a subterranean chamber of towering drive "
+                "enclosures. A maze of magnetic storage racks echoes with sector seek noise. "
+                "Somewhere in the clutter of historical dumps, oversized data blocks are choking "
+                "the passage forward."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [TAPE RACKS]    [VENT SHAFT]|\n"
+                "|     ||              ||      |\n"
+                "|                             |\n"
+                "| [BYTE SCANNER]    [GATE: #3]|\n"
+                "+-----------------------------+"
+            ),
+        },
         "difficulty": 2,
         "time_limit_seconds": 240,
         "locked": True,
@@ -233,8 +310,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
                     {
                         "action": "examine",
                         "message": (
-                            "Sector Index: Multiple large dumps found in /archive "
-                            "spanning >1MB."
+                            "Sector Index: Multiple large dumps found in /archive spanning >1MB."
                         ),
                         "state_effect": "tape_indices_found",
                     }
@@ -273,6 +349,30 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "A heavy blast door with strict permission controls "
             "requires precise security octal modes."
         ),
+        "theme": "security-interlock",
+        "atmosphere": {
+            "sights": (
+                "A reinforced titanium bulkhead with hydraulic pistons "
+                "and illuminated chmod permission bit indicators."
+            ),
+            "sounds": (
+                "Intermittent warning klaxons and the heavy clunk of pneumatic pressure seals."
+            ),
+            "smells": "Hydraulic fluid, scorched carbon contacts, and industrial rubber gaskets.",
+            "ambient_text": (
+                "A reinforced security airlock seals the corridor. Red emergency strips pulse "
+                "across the bulkhead door. A permissions matrix terminal demands exact octal mode "
+                "compliance before the hydraulic locking pins will disengage."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [PERM MATRIX]  [HYDRAULICS] |\n"
+                "|      ||             ||      |\n"
+                "|                             |\n"
+                "| [CONSOLE]       [BLAST DOOR]|\n"
+                "+-----------------------------+"
+            ),
+        },
         "difficulty": 3,
         "time_limit_seconds": 180,
         "locked": True,
@@ -296,8 +396,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             {
                 "level": 3,
                 "text": (
-                    "Execute 'chmod 644 <gate_key>' to grant owner read-write "
-                    "and others read-only."
+                    "Execute 'chmod 644 <gate_key>' to grant owner read-write and others read-only."
                 ),
                 "unlock_condition": "after 3 failed attempts or 2 minutes",
             },
@@ -331,6 +430,31 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "The heart of the facility. "
             "You need to provide the ultimate answer to escape to freedom."
         ),
+        "theme": "quantum-core",
+        "atmosphere": {
+            "sights": (
+                "A glowing cylindrical magnetic containment column floating "
+                "above an abyss of superconducting coils."
+            ),
+            "sounds": (
+                "Harmonic resonant singing from the core containment field "
+                "and high-pitched frequency oscillations."
+            ),
+            "smells": "Liquid helium vapor and ultra-pure ionized atmosphere.",
+            "ambient_text": (
+                "You have breached the facility's quantum core sanctuary. Superheated plasma "
+                "spirals within a levitating torus. The central AI awaits the canonical "
+                "computation code to finalize safe facility shutdown and grant absolute freedom."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "|       ( ( ( CORE ) ) )      |\n"
+                "|             / | \\           |\n"
+                "|            /  |  \\          |\n"
+                "| [TERMINAL]     [FINAL ESCAPE|\n"
+                "+-----------------------------+"
+            ),
+        },
         "difficulty": 4,
         "time_limit_seconds": 120,
         "locked": True,
@@ -354,8 +478,7 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             {
                 "level": 3,
                 "text": (
-                    "The exact C code: "
-                    "#include <stdio.h>\\nint main(){printf(\"42\\\\n\");return 0;}"
+                    'The exact C code: #include <stdio.h>\\nint main(){printf("42\\\\n");return 0;}'
                 ),
                 "unlock_condition": "after 3 failed attempts or 1 minute",
             },
@@ -517,11 +640,7 @@ def use_object(
             "inventory": inventory,
         }
 
-    msg = (
-        use_trigger.get("message")
-        if use_trigger
-        else f"You used {obj.get('name')} successfully."
-    )
+    msg = use_trigger.get("message") if use_trigger else f"You used {obj.get('name')} successfully."
     effect = use_trigger.get("state_effect") if use_trigger else "item_used"
 
     return {
@@ -578,9 +697,7 @@ def interact_with_object(
             if matched_trigger
             else f"You interacted with {obj.get('name')}."
         ),
-        "state_effect": (
-            matched_trigger.get("state_effect") if matched_trigger else None
-        ),
+        "state_effect": (matched_trigger.get("state_effect") if matched_trigger else None),
     }
 
     return result
@@ -627,9 +744,7 @@ def get_adaptive_room_hints(
         if isinstance(h, dict):
             lvl = int(h.get("level", 1))
             is_unlocked = lvl <= max_unlocked_level
-            locked_placeholder = (
-                "Locked. Make more attempts or spend time exploring to reveal."
-            )
+            locked_placeholder = "Locked. Make more attempts or spend time exploring to reveal."
             hint_entry = {
                 "level": lvl,
                 "text": h.get("text", "") if is_unlocked else locked_placeholder,
@@ -651,9 +766,7 @@ def get_adaptive_room_hints(
         hints_output.append(hint_entry)
 
     # Filter available text list for straightforward display
-    available_hint_texts = [
-        h["text"] for h in hints_output if h["is_unlocked"]
-    ]
+    available_hint_texts = [h["text"] for h in hints_output if h["is_unlocked"]]
 
     return {
         "room_id": room_id,

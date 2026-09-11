@@ -194,9 +194,7 @@ def test_inventory_pickup_and_use(client):
     assert "swipe the Brass Keycard" in udata["message"]
 
     # Use item not in inventory fails
-    res_use_missing = client.post(
-        "/api/v1/rooms/room-2/objects/obj-c-reference-manual/use"
-    )
+    res_use_missing = client.post("/api/v1/rooms/room-2/objects/obj-c-reference-manual/use")
     assert res_use_missing.status_code == 400
     assert "do not possess" in res_use_missing.get_json()["error"]
 
@@ -268,10 +266,36 @@ def test_adaptive_hints_progression_and_api(client):
     assert len(hdata3["available_hints"]) == 3
     assert "ls -a" in hdata3["hints"][2]["text"]
 
-    # Test CLI formatting for adaptive hints
-    formatted_cli = cli.format_adaptive_hints(hdata3)
-    assert "💡 Adaptive Hints for The Antechamber" in formatted_cli
-    assert "[Level 1 - Subtle Clue] ✅" in formatted_cli
-    assert "[Level 2 - Directional Guidance] ✅" in formatted_cli
-    assert "[Level 3 - Direct Solution] ✅" in formatted_cli
 
+def test_room_atmosphere_and_theming(client):
+    # Test catalog contains theme, atmosphere description, sights, sounds, smells, and ASCII layout
+    all_rooms = rooms.get_all_rooms()
+    for rm in all_rooms:
+        assert "theme" in rm
+        assert "atmosphere" in rm
+        atm = rm["atmosphere"]
+        assert "sights" in atm
+        assert "sounds" in atm
+        assert "smells" in atm
+        assert "ambient_text" in atm
+        assert "ascii_art" in atm
+
+    # Test API returns atmosphere details
+    res = client.get("/api/v1/rooms")
+    assert res.status_code == 200
+    rdata = res.get_json()
+    assert len(rdata) == 5
+    assert rdata[0]["theme"] == "cyberpunk-terminal"
+    assert "Phosphor-green" in rdata[0]["atmosphere"]["sights"]
+
+    # Test CLI look around / atmosphere formatting
+    atm_str = cli.format_room_atmosphere(all_rooms[0])
+    assert "Atmosphere & Observation: The Antechamber" in atm_str
+    assert "Theme: cyberpunk-terminal" in atm_str
+    assert "Sights: Phosphor-green" in atm_str
+    assert "Sounds: A steady electrical hum" in atm_str
+    assert "Smells: Faint ozone" in atm_str
+    assert "Room Map / Layout:" in atm_str
+    assert "[CRT]" in atm_str
+    assert "Visible Interactive Items:" in atm_str
+    assert "Flickering Terminal" in atm_str

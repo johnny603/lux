@@ -122,6 +122,44 @@ def format_progress_summary(state: Dict, levels: Optional[List[Dict]] = None) ->
     return " | ".join(pieces)
 
 
+def format_room_atmosphere(room: Dict) -> str:
+    if not room:
+        return "Chamber atmosphere details unavailable."
+    rname = room.get("name", "Unknown Chamber")
+    rid = room.get("id", "")
+    theme = room.get("theme", "industrial-facility")
+    atmosphere = room.get("atmosphere") or {}
+
+    ambient = atmosphere.get("ambient_text", room.get("description", ""))
+    sights = atmosphere.get("sights", "Minimal lighting with active console terminals.")
+    sounds = atmosphere.get("sounds", "Faint mechanical hum and cooling fans.")
+    smells = atmosphere.get("smells", "Static electricity and warm electronics.")
+    ascii_art = atmosphere.get("ascii_art", "")
+
+    lines = [
+        f"🌌 === Atmosphere & Observation: {rname} [{rid}] ===",
+        f"🏷️ Theme: {theme}",
+        f"📖 Ambient: {ambient}",
+        f"👁️ Sights: {sights}",
+        f"👂 Sounds: {sounds}",
+        f"👃 Smells: {smells}",
+    ]
+    if ascii_art:
+        lines.append("\n🗺️ Room Map / Layout:")
+        lines.append(ascii_art)
+
+    objs = room.get("objects", [])
+    if objs:
+        lines.append("\n📦 Visible Interactive Items:")
+        for obj in objs:
+            take_tag = "[Takeable]" if obj.get("is_pickupable") else "[Fixed]"
+            lines.append(
+                f"  * {obj.get('name')} ({obj.get('id')}) {take_tag} - {obj.get('description')}"
+            )
+
+    return "\n".join(lines)
+
+
 def format_room_objects(objects: Sequence[Dict]) -> str:
     if not objects:
         return "No interactive objects found in this chamber."
@@ -203,4 +241,3 @@ def format_adaptive_hints(hints_data: Optional[Dict]) -> str:
             cond = h.get("unlock_condition")
             lines.append(f"  [Level {lvl} - {lvl_tag}] 🔒 {h.get('text')} (Unlock: {cond})")
     return "\n".join(lines)
-
