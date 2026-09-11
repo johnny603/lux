@@ -260,13 +260,14 @@ def format_room_map(map_data: Dict) -> str:
 
     # Render node chain representation
     node_blocks = []
-    for r in sorted(rooms_list, key=lambda x: x.get("position", {}).get("x", 0)):
+    for r in sorted(rooms_list, key=lambda x: (x.get("is_secret", False), x.get("position", {}).get("x", 0))):
         rid = r.get("id", "")
         rname = r.get("name", "Chamber")
         is_cur = rid == current_id
         is_esc = rid in escaped_set
         is_unl = r.get("is_unlocked", False)
         is_exp = r.get("is_expired", False)
+        is_secret = r.get("is_secret", False)
 
         if is_esc:
             badge = "✅ ESCAPED"
@@ -278,6 +279,9 @@ def format_room_map(map_data: Dict) -> str:
             badge = "🔓 UNLOCKED"
         else:
             badge = "🔒 LOCKED"
+
+        if is_secret:
+            badge = f"✨ {badge}"
 
         pos = r.get("position", {})
         pos_tag = f"({pos.get('x', 0)},{pos.get('y', 0)})"
@@ -297,6 +301,19 @@ def format_room_map(map_data: Dict) -> str:
     for conn in map_data.get("connections", []):
         lines.append(f"  • {conn.get('from')} <===> {conn.get('to')}")
 
-    lines.append("\n🏷️ Legend: [📍 Current Room] [✅ Escaped] [🔓 Unlocked] [🔒 Locked] [⏱️ Expired]")
+    lines.append("\n🏷️ Legend: [📍 Current Room] [✅ Escaped] [🔓 Unlocked] [🔒 Locked] [⏱️ Expired] [✨ Secret Chamber]")
     return "\n".join(lines)
+
+
+def format_secret_room_discovery(room: Dict) -> str:
+    """Format notification message when player discovers a hidden chamber / easter egg."""
+    rname = room.get("name", "Secret Chamber")
+    rid = room.get("id", "secret-room")
+    desc = room.get("description", "")
+    return (
+        f"✨🎉 EASTER EGG FOUND! Secret Chamber Unlocked: '{rname}' [{rid}]! 🎉✨\n"
+        f"📝 {desc}\n"
+        f"Use /api/v1/rooms/{rid} or explore via map to enter!"
+    )
+
 

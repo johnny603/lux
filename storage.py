@@ -82,6 +82,7 @@ def _default_game():
         "daily": {"last_challenge_date": None, "completed_dates": []},
         "adventure": {"current_world": None, "unlocked_worlds": [], "campaign_progress": {}},
         "escaped_rooms": [],
+        "discovered_secret_rooms": [],
         "inventory": [],
         "room_timers": {},
     }
@@ -183,6 +184,10 @@ def normalize_state(state):
     if not isinstance(escaped_rooms, list):
         escaped_rooms = []
     merged_game["escaped_rooms"] = [str(r) for r in escaped_rooms if r]
+    discovered_secrets = game.get("discovered_secret_rooms", [])
+    if not isinstance(discovered_secrets, list):
+        discovered_secrets = []
+    merged_game["discovered_secret_rooms"] = [str(r) for r in discovered_secrets if r]
     inventory = game.get("inventory", [])
     if not isinstance(inventory, list):
         inventory = []
@@ -431,6 +436,25 @@ def mark_room_escaped(state: dict, room_id: str) -> dict:
         escaped.append(rid)
     state.update(normalized)
     return state
+
+
+def get_discovered_secret_rooms(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("discovered_secret_rooms", []))
+
+
+def discover_secret_room(state: dict, room_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    secrets = game.setdefault("discovered_secret_rooms", [])
+    rid = str(room_id).strip()
+    if rid and rid not in secrets:
+        secrets.append(rid)
+    state.update(normalized)
+    return state
+
+
+def is_secret_room_discovered(state: dict, room_id: str) -> bool:
+    return str(room_id).strip() in get_discovered_secret_rooms(state)
 
 
 def get_inventory(state: dict) -> list[str]:

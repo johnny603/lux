@@ -515,12 +515,173 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             }
         ],
     },
+    {
+        "id": "room-secret-1",
+        "name": "The Hidden Glitch Sanctuary",
+        "description": (
+            "A concealed debug void accessed through a wall terminal glitch. "
+            "Easter egg secrets and legacy test routines reside here."
+        ),
+        "theme": "debug-void",
+        "is_secret": True,
+        "discovery_condition": {
+            "type": "terminal_glitch",
+            "required_object": "obj-flickering-terminal",
+            "action": "examine",
+            "trigger_code": "glitch_void",
+            "description": "Examine the flickering terminal in room-1 to reveal the hidden glitch frequency.",
+        },
+        "atmosphere": {
+            "sights": "Inverted purple phosphor text floating in black space with scanline artifacts.",
+            "sounds": "Lo-fi synth chords echoing across an endless virtual expanse.",
+            "smells": "Virtual rain and ozone static.",
+            "ambient_text": (
+                "You stepped behind the render layer into a forgotten developer sanctuary. "
+                "Unused assets and debug tools sit neatly categorized along glowing neon grids."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [DEBUG CONSOLE]    [EASTER] |\n"
+                "|       ||              ||    |\n"
+                "|                             |\n"
+                "| [SECRET DISK]    [VOID GATE]|\n"
+                "+-----------------------------+"
+            ),
+        },
+        "difficulty": 1,
+        "time_limit_seconds": None,
+        "position": {"x": 0, "y": 0},
+        "connected_rooms": ["room-1"],
+        "locked": False,
+        "required_previous_room": None,
+        "unlock_condition": {
+            "type": "starter",
+            "description": "Secret chamber revealed by discovery.",
+        },
+        "hints": [
+            {
+                "level": 1,
+                "text": "The developer left an easter egg in the debug prompt.",
+                "unlock_condition": "Immediate access / baseline observation",
+            }
+        ],
+        "escape_condition": {
+            "puzzle_id": "1",
+            "type": "puzzle_solved",
+            "description": "Claim the secret chamber easter egg.",
+        },
+        "objects": [
+            {
+                "id": "obj-debug-easter-egg",
+                "name": "Developer Golden Floppy",
+                "description": "A shiny golden 3.5-inch floppy disk labeled 'Lux v0.0.1 Easter Egg'.",
+                "is_pickupable": True,
+                "usable_on": ["room-secret-1", "room-1"],
+                "use_effect": "Plays the classic retro victory chime.",
+                "interaction_hint": "Collect the developer floppy disk.",
+                "triggers": [
+                    {
+                        "action": "pickup",
+                        "message": "You acquired the Golden Floppy Easter Egg! Tux and Pingu would be proud.",
+                        "state_effect": "has_golden_floppy",
+                    }
+                ],
+            }
+        ],
+    },
+    {
+        "id": "room-secret-2",
+        "name": "The Cyber Crypt of Tux",
+        "description": (
+            "A retro Linux vault honoring Tux and Pingu with cryptic assembly riddles."
+        ),
+        "theme": "retro-monolith",
+        "is_secret": True,
+        "discovery_condition": {
+            "type": "inventory_item_use",
+            "required_item": "obj-brass-keycard",
+            "target_room": "room-2",
+            "description": "Use the Brass Keycard in room-2 on the mainframe workstation to unveil the Crypt.",
+        },
+        "atmosphere": {
+            "sights": "A stone-and-silicon crypt lit by torches of blue LED fiber optics.",
+            "sounds": "The faint noot-noot echo of mascot legends in the distance.",
+            "smells": "Cedar wood mixed with cryogenic refrigeration chill.",
+            "ambient_text": (
+                "Monolithic stone tablets carved with hexadecimal opcodes rise from the floor. "
+                "In the center rests the legendary monument to Lux the penguin mascot."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "|       (o_  [LUX]  _o)       |\n"
+                "|       //\\         /\\\\       |\n"
+                "|       V_/_       _\\_V       |\n"
+                "| [CRYPTO VAULT]  [TUX SHRINE]|\n"
+                "+-----------------------------+"
+            ),
+        },
+        "difficulty": 2,
+        "time_limit_seconds": None,
+        "position": {"x": 1, "y": 0},
+        "connected_rooms": ["room-2"],
+        "locked": False,
+        "required_previous_room": None,
+        "unlock_condition": {
+            "type": "starter",
+            "description": "Secret chamber unlocked upon discovery.",
+        },
+        "hints": [
+            {
+                "level": 1,
+                "text": "Honor the penguin roots with Linux command knowledge.",
+                "unlock_condition": "Immediate access / baseline observation",
+            }
+        ],
+        "escape_condition": {
+            "puzzle_id": "2",
+            "type": "puzzle_solved",
+            "description": "Solve the crypt riddle to escape.",
+        },
+        "objects": [
+            {
+                "id": "obj-tux-mascot-totem",
+                "name": "Lux Penguin Totem",
+                "description": "A handcrafted marble totem of Lux the penguin with sunglasses.",
+                "is_pickupable": True,
+                "usable_on": ["room-secret-2"],
+                "use_effect": "Unlocks eternal penguin luck and blessing.",
+                "interaction_hint": "Pick up the mascot totem.",
+                "triggers": [
+                    {
+                        "action": "pickup",
+                        "message": "You received the Lux Penguin Mascot Totem!",
+                        "state_effect": "has_lux_totem",
+                    }
+                ],
+            }
+        ],
+    },
 ]
 
 
-def get_all_rooms() -> List[Dict[str, Any]]:
-    """Return a deep copy of all configured rooms."""
-    return copy.deepcopy(DEFAULT_ROOMS)
+def get_all_secret_room_ids() -> List[str]:
+    """Return all secret room IDs in the catalog."""
+    return [r["id"] for r in DEFAULT_ROOMS if r.get("is_secret", False)]
+
+
+def get_all_rooms(include_secrets: bool = False, state: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    """Return a deep copy of configured rooms. Secret rooms are omitted unless discovered or requested."""
+    import storage
+    if include_secrets:
+        return copy.deepcopy(DEFAULT_ROOMS)
+    
+    discovered_secrets = set(storage.get_discovered_secret_rooms(state)) if state else set()
+    return [
+        copy.deepcopy(r)
+        for r in DEFAULT_ROOMS
+        if not r.get("is_secret", False) or r["id"] in discovered_secrets
+    ]
+
 
 
 def get_room(room_id: str) -> Optional[Dict[str, Any]]:
@@ -909,14 +1070,17 @@ def decorate_room(
 def get_rooms_summary(
     escaped_rooms: set[str] | list[str],
     state: Optional[Dict[str, Any]] = None,
+    include_secrets: bool = False,
 ) -> List[Dict[str, Any]]:
-    """Return all rooms decorated with their current unlock/escape status."""
-    return [decorate_room(room, escaped_rooms, state) for room in DEFAULT_ROOMS]
+    """Return all accessible rooms decorated with their current unlock/escape status."""
+    rooms_list = get_all_rooms(include_secrets=include_secrets, state=state)
+    return [decorate_room(room, escaped_rooms, state) for room in rooms_list]
 
 
 def get_rooms_map(
     state: Optional[Dict[str, Any]] = None,
     current_room_id: Optional[str] = None,
+    include_secrets: bool = False,
 ) -> Dict[str, Any]:
     """Return room map structure with positions, connections, and unlock/escape statuses."""
     import storage
@@ -925,7 +1089,7 @@ def get_rooms_map(
         state = storage.load_state()
 
     escaped_rooms = storage.get_escaped_rooms(state)
-    decorated = get_rooms_summary(escaped_rooms, state=state)
+    decorated = get_rooms_summary(escaped_rooms, state=state, include_secrets=include_secrets)
 
     # Determine default current room if not explicitly provided
     # If not provided, find the first unlocked but unescaped room, or the last escaped room

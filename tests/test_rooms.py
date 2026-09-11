@@ -354,3 +354,51 @@ def test_rooms_map_and_navigation(client):
     assert "room-node" in html_text
     assert "scrollToRoom" in html_text
 
+
+def test_secret_rooms_discovery_and_easter_eggs(client):
+    # Secret rooms are not included in default list
+    all_rooms = rooms.get_all_rooms()
+    assert len(all_rooms) == 5
+    assert all(not r.get("is_secret") for r in all_rooms)
+
+    # All rooms including secrets can be fetched
+    all_with_secrets = rooms.get_all_rooms(include_secrets=True)
+    assert len(all_with_secrets) == 7
+    secret_rooms = [r for r in all_with_secrets if r.get("is_secret")]
+    assert len(secret_rooms) == 2
+    assert secret_rooms[0]["id"] == "room-secret-1"
+    assert secret_rooms[1]["id"] == "room-secret-2"
+
+    # Initially discovered secrets is empty
+    state = storage.load_state()
+    assert storage.get_discovered_secret_rooms(state) == []
+
+    # Discovering room-secret-1
+    storage.discover_secret_room(state, "room-secret-1")
+    assert storage.is_secret_room_discovered(state, "room-secret-1") is True
+    assert len(storage.get_discovered_secret_rooms(state)) == 1
+    storage.save_state(state)
+
+    # Room is now accessible in get_all_rooms(state=state)
+    accessible = rooms.get_all_rooms(state=state)
+    assert len(accessible) == 6
+    assert any(r["id"] == "room-secret-1" for r in accessible)
+
+    # Check achievements unlocking master_secrets only after all secret rooms discovered
+    import achievements
+    ach_unlocked = achievements.evaluate_achievements(state)
+    assert not any(a["id"] == "master_secrets" for a in ach_unlocked)
+
+    # Discover second secret room
+    storage.discover_secret_room(state, "room-secret-2")
+    storage.save_state(state)
+    ach_unlocked_2 = achievements.evaluate_achievements(state)
+    assert any(a["id"] == "master_secrets" for a in ach_unlocked_2)
+    assert "master_secrets" in state["achievements"]
+
+    # Formatting helper for discovery
+    disc_text = cli.format_secret_room_discovery(secret_rooms[0])
+    assert "EASTER EGG FOUND" in disc_text
+    assert "The Hidden Glitch Sanctuary" in disc_text
+
+
