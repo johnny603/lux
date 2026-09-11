@@ -191,6 +191,10 @@ def normalize_state(state):
     if not isinstance(room_timers, dict):
         room_timers = {}
     merged_game["room_timers"] = room_timers
+    hints_used = game.get("hints_used", {})
+    if not isinstance(hints_used, dict):
+        hints_used = {}
+    merged_game["hints_used"] = hints_used
     normalized["game"] = merged_game
 
     meta = normalized.get("meta", {})
@@ -528,6 +532,39 @@ def reset_room_timer(state: dict, room_id: str) -> dict:
         del timers[rid]
     state.update(normalized)
     return state
+
+
+def record_hint_usage(
+    state: dict,
+    room_id: str,
+    hint_level: int,
+    hint_text: str = "",
+) -> dict:
+    """Record hint revealed/requested by player for analytics and state tracking."""
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    hints_used = game.setdefault("hints_used", {})
+    rid = str(room_id).strip()
+    now_iso = _iso_now()
+    room_hints = hints_used.setdefault(rid, [])
+    entry = {
+        "level": int(hint_level),
+        "requested_at": now_iso,
+        "hint_preview": hint_text[:100] if hint_text else "",
+    }
+    room_hints.append(entry)
+    state.update(normalized)
+    return state
+
+
+def get_hints_used(state: dict, room_id: Optional[str] = None) -> dict | list:
+    """Get hint usage logs across all rooms or for a specific room."""
+    normalized = normalize_state(state)
+    hints_used = normalized.get("game", {}).get("hints_used", {})
+    if room_id:
+        return list(hints_used.get(str(room_id).strip(), []))
+    return copy.deepcopy(hints_used)
+
 
 
 def award_xp(state: dict, amount: int):

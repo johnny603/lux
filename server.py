@@ -773,6 +773,66 @@ def api_room_object_use(room_id, object_id):
     return response(True, **res)
 
 
+@app.route("/api/v1/rooms/<room_id>/hints", methods=["GET"])
+def api_room_hints(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    hints_data = rooms.get_adaptive_room_hints(room_id, state=state)
+    if not hints_data:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return jsonify(hints_data)
+
+
+@app.route("/api/v1/rooms/<room_id>/hints/<int:hint_level>/reveal", methods=["POST"])
+@csrf.exempt
+def api_room_hint_reveal(room_id, hint_level):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    hints_data = rooms.get_adaptive_room_hints(room_id, state=state)
+    if not hints_data:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    target_hint = next(
+        (h for h in hints_data.get("hints", []) if h.get("level") == hint_level),
+        None,
+    )
+    if not target_hint:
+        return response(False, error=f"Hint level {hint_level} not found for this room"), 404
+
+    if not target_hint.get("is_unlocked"):
+        return (
+            response(
+                False,
+                error=(
+                    f"Hint level {hint_level} is still locked. "
+                    f"Requirement: {target_hint.get('unlock_condition')}"
+                ),
+                hint_level=hint_level,
+                is_unlocked=False,
+                unlock_condition=target_hint.get("unlock_condition"),
+            ),
+            403,
+        )
+
+    storage.record_hint_usage(
+        state, room_id, hint_level=hint_level, hint_text=target_hint.get("text", "")
+    )
+    storage.save_state(state)
+    return response(
+        True,
+        room_id=room_id,
+        hint_level=hint_level,
+        is_unlocked=True,
+        text=target_hint.get("text"),
+        unlock_condition=target_hint.get("unlock_condition"),
+    )
+
+
+
 @app.route("/rooms", methods=["GET"])
 def web_rooms():
     state = storage.load_state()

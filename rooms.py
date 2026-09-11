@@ -21,8 +21,24 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "description": "Initial unlocked entry point to the facility.",
         },
         "hints": [
-            "Inspect the filesystem carefully for hidden clues.",
-            "Hidden files in Unix usually start with a dot.",
+            {
+                "level": 1,
+                "text": "Inspect the filesystem carefully for hidden clues.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "Hidden files in Unix systems usually start with a leading dot ('.').",
+                "unlock_condition": "after 1 failed attempt or 30 seconds",
+            },
+            {
+                "level": 3,
+                "text": (
+                    "Run 'ls -a' or find hidden configuration "
+                    "files to uncover the unlock parameter."
+                ),
+                "unlock_condition": "after 3 failed attempts or 2 minutes",
+            },
         ],
         "escape_condition": {
             "puzzle_id": "1",
@@ -104,8 +120,21 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "description": "Escape room-1 (The Antechamber) to unlock.",
         },
         "hints": [
-            "Use the standard GCC compiler syntax.",
-            "Make sure to specify the output binary filename.",
+            {
+                "level": 1,
+                "text": "Use the standard GCC compiler syntax for C programs.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "Make sure to specify the output binary filename with the -o flag.",
+                "unlock_condition": "after 1 failed attempt or 60 seconds",
+            },
+            {
+                "level": 3,
+                "text": "Compile the source directly using: gcc -o hello hello.c",
+                "unlock_condition": "after 3 failed attempts or 3 minutes",
+            },
         ],
         "escape_condition": {
             "puzzle_id": "2",
@@ -172,8 +201,21 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "description": "Escape room-2 (The Compiler Laboratory) to unlock.",
         },
         "hints": [
-            "The find command can filter files by size.",
-            "Look for files exceeding 1 Megabyte.",
+            {
+                "level": 1,
+                "text": "The standard Unix find command can filter files by size thresholds.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "Look for files exceeding 1MB using the '+1M' or '+1024k' size flag.",
+                "unlock_condition": "after 1 failed attempt or 60 seconds",
+            },
+            {
+                "level": 3,
+                "text": "Run 'find /archive -type f -size +1M' to locate blocking large files.",
+                "unlock_condition": "after 3 failed attempts or 3 minutes",
+            },
         ],
         "escape_condition": {
             "puzzle_id": "3",
@@ -241,8 +283,24 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "description": "Escape room-3 (The Storage Archive) to unlock.",
         },
         "hints": [
-            "Permissions are calculated in octal: read is 4, write is 2, execute is 1.",
-            "Owner read-write is 6, group read is 4, others read is 4.",
+            {
+                "level": 1,
+                "text": "POSIX file permissions are in octal: read=4, write=2, execute=1.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "Owner read-write is 6 (4+2), group read is 4, others read is 4.",
+                "unlock_condition": "after 1 failed attempt or 60 seconds",
+            },
+            {
+                "level": 3,
+                "text": (
+                    "Execute 'chmod 644 <gate_key>' to grant owner read-write "
+                    "and others read-only."
+                ),
+                "unlock_condition": "after 3 failed attempts or 2 minutes",
+            },
         ],
         "escape_condition": {
             "puzzle_id": "4",
@@ -283,8 +341,24 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             "description": "Escape room-4 (The Access Gate) to unlock.",
         },
         "hints": [
-            "Write a C program that outputs the ultimate answer.",
-            "Standard printf with number 42.",
+            {
+                "level": 1,
+                "text": "Write a C program that compiles and outputs the ultimate answer.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "Use standard printf() from <stdio.h> to print 42 with a newline.",
+                "unlock_condition": "after 1 failed attempt or 30 seconds",
+            },
+            {
+                "level": 3,
+                "text": (
+                    "The exact C code: "
+                    "#include <stdio.h>\\nint main(){printf(\"42\\\\n\");return 0;}"
+                ),
+                "unlock_condition": "after 3 failed attempts or 1 minute",
+            },
         ],
         "escape_condition": {
             "puzzle_id": "5",
@@ -512,6 +586,90 @@ def interact_with_object(
     return result
 
 
+def get_adaptive_room_hints(
+    room_id: str,
+    state: Optional[Dict[str, Any]] = None,
+) -> Optional[Dict[str, Any]]:
+    """Calculate and return unlocked adaptive hints for a room based on player attempts/progress."""
+    import storage
+
+    room = get_room(room_id)
+    if not room:
+        return None
+
+    if state is None:
+        state = storage.load_state()
+
+    puzzle_id = room.get("escape_condition", {}).get("puzzle_id")
+    failed_attempts = 0
+    total_attempts = 0
+    if puzzle_id:
+        stats = storage.get_level_attempt_stats(state, puzzle_id)
+        failed_attempts = int(stats.get("incorrect", 0) or 0)
+        total_attempts = int(stats.get("attempts", 0) or 0)
+
+    # Determine max unlocked level based on failed attempts
+    # level 1: always available (0+ attempts)
+    # level 2: unlocked after 1+ failed attempts or 2+ total attempts
+    # level 3: unlocked after 3+ failed attempts or 4+ total attempts
+    if failed_attempts >= 3 or total_attempts >= 4:
+        max_unlocked_level = 3
+    elif failed_attempts >= 1 or total_attempts >= 2:
+        max_unlocked_level = 2
+    else:
+        max_unlocked_level = 1
+
+    raw_hints = room.get("hints", [])
+    hints_output = []
+    unlocked_count = 0
+
+    for h in raw_hints:
+        if isinstance(h, dict):
+            lvl = int(h.get("level", 1))
+            is_unlocked = lvl <= max_unlocked_level
+            locked_placeholder = (
+                "Locked. Make more attempts or spend time exploring to reveal."
+            )
+            hint_entry = {
+                "level": lvl,
+                "text": h.get("text", "") if is_unlocked else locked_placeholder,
+                "unlock_condition": h.get("unlock_condition", ""),
+                "is_unlocked": is_unlocked,
+            }
+        else:
+            # Fallback for simple string hint
+            lvl = 1
+            is_unlocked = True
+            hint_entry = {
+                "level": lvl,
+                "text": str(h),
+                "unlock_condition": "Available",
+                "is_unlocked": True,
+            }
+        if is_unlocked:
+            unlocked_count += 1
+        hints_output.append(hint_entry)
+
+    # Filter available text list for straightforward display
+    available_hint_texts = [
+        h["text"] for h in hints_output if h["is_unlocked"]
+    ]
+
+    return {
+        "room_id": room_id,
+        "room_name": room.get("name"),
+        "difficulty": room.get("difficulty"),
+        "puzzle_id": puzzle_id,
+        "failed_attempts": failed_attempts,
+        "total_attempts": total_attempts,
+        "max_unlocked_level": max_unlocked_level,
+        "unlocked_hints_count": unlocked_count,
+        "total_hints_count": len(hints_output),
+        "hints": hints_output,
+        "available_hints": available_hint_texts,
+    }
+
+
 def check_unlock_condition(
     condition: Optional[Dict[str, Any]],
     escaped_rooms: set[str] | list[str],
@@ -609,6 +767,12 @@ def decorate_room(
             unlock_desc = f"Complete and escape {req} to unlock."
         else:
             unlock_desc = "Available to explore."
+
+    # Compute adaptive hints
+    adaptive_hint_info = get_adaptive_room_hints(r["id"], state=state)
+    if adaptive_hint_info:
+        r["hints_data"] = adaptive_hint_info
+        r["hints"] = adaptive_hint_info.get("hints", [])
 
     r["is_unlocked"] = unlocked
     r["is_escaped"] = is_escaped

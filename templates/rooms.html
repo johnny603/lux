@@ -131,12 +131,41 @@
                 {% if room.hints %}
                 <div class="mb-3 small">
                     <details>
-                        <summary class="text-info cursor-pointer">Room Hints ({{ room.hints|length }})</summary>
-                        <ul class="mt-2 ps-3 text-secondary mb-0">
+                        <summary class="text-info cursor-pointer">
+                            <i class="bi bi-lightbulb me-1"></i>Adaptive Hints 
+                            {% if room.hints_data %}
+                            ({{ room.hints_data.unlocked_hints_count }}/{{ room.hints_data.total_hints_count }} unlocked)
+                            {% else %}
+                            ({{ room.hints|length }})
+                            {% endif %}
+                        </summary>
+                        <div class="mt-2 p-2 rounded bg-black bg-opacity-50 border border-secondary">
                             {% for hint in room.hints %}
-                            <li>{{ hint }}</li>
+                            <div class="mb-2 pb-2 border-bottom border-secondary border-opacity-50 last:border-0">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge {% if hint.level == 1 %}bg-info text-dark{% elif hint.level == 2 %}bg-warning text-dark{% else %}bg-danger{% endif %}" style="font-size: 0.65rem;">
+                                        Level {{ hint.level }}
+                                        {% if hint.level == 1 %}· Subtle Clue
+                                        {% elif hint.level == 2 %}· Guidance
+                                        {% else %}· Direct Solution{% endif %}
+                                    </span>
+                                    {% if hint.is_unlocked %}
+                                    <span class="badge bg-success text-white" style="font-size: 0.6rem;"><i class="bi bi-unlock-fill me-1"></i>Unlocked</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary text-light" style="font-size: 0.6rem;"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                                    {% endif %}
+                                </div>
+                                <div class="{% if hint.is_unlocked %}text-light{% else %}text-muted fst-italic{% endif %}" style="font-size: 0.8rem;">
+                                    {{ hint.text }}
+                                </div>
+                                {% if not hint.is_unlocked and hint.unlock_condition %}
+                                <div class="text-secondary mt-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Unlock condition: {{ hint.unlock_condition }}
+                                </div>
+                                {% endif %}
+                            </div>
                             {% endfor %}
-                        </ul>
+                        </div>
                     </details>
                 </div>
                 {% endif %}

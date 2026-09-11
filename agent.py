@@ -350,6 +350,28 @@ def _handle_menu_choice(choice, state, levels):
         else:
             print("Usage: use <object_id> [target] [room_id]")
         return True
+    if lowered.startswith("hint") or lowered.startswith("hints"):
+        parts = choice.split(maxsplit=1)
+        room_id = parts[1].strip() if len(parts) > 1 else "room-1"
+        try:
+            r = requests.get(f"{SERVER}/api/v1/rooms/{room_id}/hints", timeout=5)
+            if r.status_code == 200:
+                hdata = r.json()
+                print(cli.format_adaptive_hints(hdata))
+            else:
+                # Local fallback calculation if server is not reachable
+                hdata = rooms.get_adaptive_room_hints(room_id, state=state)
+                if hdata:
+                    print(cli.format_adaptive_hints(hdata))
+                else:
+                    print(f"❌ Room '{room_id}' not found.")
+        except Exception:
+            hdata = rooms.get_adaptive_room_hints(room_id, state=state)
+            if hdata:
+                print(cli.format_adaptive_hints(hdata))
+            else:
+                print(f"❌ Room '{room_id}' not found.")
+        return True
     if lowered in ("rooms", "escape-rooms", "escape"):
         try:
             r = requests.get(f"{SERVER}/api/v1/rooms", timeout=5)

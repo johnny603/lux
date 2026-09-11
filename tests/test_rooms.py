@@ -207,3 +207,71 @@ def test_inventory_pickup_and_use(client):
     formatted = cli.format_inventory(items)
     assert "🎒 Player Inventory:" in formatted
     assert "Brass Keycard" in formatted
+
+
+def test_adaptive_hints_progression_and_api(client):
+    # Initial state: 0 attempts on puzzle-1 -> Level 1 unlocked, Level 2 and 3 locked
+    res_hints = client.get("/api/v1/rooms/room-1/hints")
+    assert res_hints.status_code == 200
+    hdata = res_hints.get_json()
+    assert hdata["room_id"] == "room-1"
+    assert hdata["unlocked_hints_count"] == 1
+    assert hdata["total_hints_count"] == 3
+    assert hdata["max_unlocked_level"] == 1
+    assert len(hdata["available_hints"]) == 1
+    assert "Inspect the filesystem" in hdata["available_hints"][0]
+
+    # Attempting to reveal locked Level 2 hint fails with 403
+    res_reveal_locked = client.post("/api/v1/rooms/room-1/hints/2/reveal")
+    assert res_reveal_locked.status_code == 403
+    assert "still locked" in res_reveal_locked.get_json()["error"]
+
+    # Revealing Level 1 succeeds and records hint usage in storage
+    res_reveal_1 = client.post("/api/v1/rooms/room-1/hints/1/reveal")
+    assert res_reveal_1.status_code == 200
+    r1_data = res_reveal_1.get_json()
+    assert r1_data["ok"] is True
+    assert r1_data["hint_level"] == 1
+    assert "Inspect the filesystem" in r1_data["text"]
+
+    state = storage.load_state()
+    hints_used = storage.get_hints_used(state, "room-1")
+    assert len(hints_used) == 1
+    assert hints_used[0]["level"] == 1
+
+    # Simulate 1 failed attempt on puzzle 1 -> Level 2 unlocks
+    storage.record_attempt(state, "1", correct=False)
+    storage.save_state(state)
+
+    res_hints2 = client.get("/api/v1/rooms/room-1/hints")
+    hdata2 = res_hints2.get_json()
+    assert hdata2["failed_attempts"] == 1
+    assert hdata2["unlocked_hints_count"] == 2
+    assert hdata2["max_unlocked_level"] == 2
+    assert len(hdata2["available_hints"]) == 2
+    assert "dot" in hdata2["hints"][1]["text"]
+
+    # Revealing Level 2 hint now succeeds
+    res_reveal_2 = client.post("/api/v1/rooms/room-1/hints/2/reveal")
+    assert res_reveal_2.status_code == 200
+
+    # Simulate 3 total failed attempts on puzzle 1 -> Level 3 (direct solution) unlocks
+    storage.record_attempt(state, "1", correct=False)
+    storage.record_attempt(state, "1", correct=False)
+    storage.save_state(state)
+
+    res_hints3 = client.get("/api/v1/rooms/room-1/hints")
+    hdata3 = res_hints3.get_json()
+    assert hdata3["failed_attempts"] == 3
+    assert hdata3["unlocked_hints_count"] == 3
+    assert hdata3["max_unlocked_level"] == 3
+    assert len(hdata3["available_hints"]) == 3
+    assert "ls -a" in hdata3["hints"][2]["text"]
+
+    # Test CLI formatting for adaptive hints
+    formatted_cli = cli.format_adaptive_hints(hdata3)
+    assert "💡 Adaptive Hints for The Antechamber" in formatted_cli
+    assert "[Level 1 - Subtle Clue] ✅" in formatted_cli
+    assert "[Level 2 - Directional Guidance] ✅" in formatted_cli
+    assert "[Level 3 - Direct Solution] ✅" in formatted_cli
+
