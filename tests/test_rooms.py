@@ -25,6 +25,8 @@ def test_rooms_catalog_structure():
         assert "description" in r
         assert "difficulty" in r
         assert 1 <= r["difficulty"] <= 5
+        assert "locked" in r
+        assert "unlock_condition" in r
         assert "hints" in r
         assert isinstance(r["hints"], list)
         assert "escape_condition" in r
@@ -37,7 +39,7 @@ def test_room_unlock_progression():
     r3 = rooms.get_room("room-3")
     assert r1 is not None and r2 is not None and r3 is not None
 
-    # Initially room-1 is unlocked (no prerequisite), room-2 is locked
+    # Initially room-1 is unlocked (starter room), room-2 is locked
     assert rooms.is_room_unlocked(r1, []) is True
     assert rooms.is_room_unlocked(r2, []) is False
 
@@ -55,13 +57,20 @@ def test_api_rooms_and_room_detail(client):
     data = res.get_json()
     assert isinstance(data, list)
     assert len(data) >= 3
-    
+
     # Check first room status
     first = data[0]
     assert first["id"] == "room-1"
     assert first["is_unlocked"] is True
     assert first["is_escaped"] is False
     assert first["status"] == "unlocked"
+
+    # Check second room (locked initially)
+    second = data[1]
+    assert second["id"] == "room-2"
+    assert second["is_unlocked"] is False
+    assert second["status"] == "locked"
+    assert "unlock_instruction" in second
 
     # Check specific room endpoint
     res_single = client.get("/api/v1/rooms/room-1")
@@ -74,10 +83,31 @@ def test_api_rooms_and_room_detail(client):
     assert res_unknown.status_code == 404
 
 
+def test_api_room_unlock_endpoint(client):
+    # Attempting to unlock room-2 without escaping room-1 returns 403
+    res = client.post("/api/v1/rooms/room-2/unlock")
+    assert res.status_code == 403
+    data = res.get_json()
+    assert data["ok"] is False
+    assert data["unlocked"] is False
+    assert "error" in data
+
+    # Unlocking starter room-1 returns 200
+    res_starter = client.post("/api/v1/rooms/room-1/unlock")
+    assert res_starter.status_code == 200
+    data_starter = res_starter.get_json()
+    assert data_starter["ok"] is True
+    assert data_starter["unlocked"] is True
+
+    # 404 for unknown room unlock
+    res_unknown = client.post("/api/v1/rooms/non-existent/unlock")
+    assert res_unknown.status_code == 404
+
+
 def test_game_systems_solve_updates_room_escape():
     state = storage.default_state()
     level = {"id": "1", "difficulty": "easy"}
-    
+
     # Solve level 1 corresponding to room-1 escape condition
     updated = game_systems.on_level_solved(state, level)
     escaped = storage.get_escaped_rooms(updated)
@@ -96,3 +126,4 @@ def test_web_rooms_page(client):
     assert res.status_code == 200
     assert b"Escape Rooms" in res.data
     assert b"The Antechamber" in res.data
+    assert b"Facility Progression Route" in res.data

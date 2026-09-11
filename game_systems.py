@@ -24,6 +24,7 @@ def on_level_solved(state: Dict, level: Optional[Dict] = None) -> Dict:
     level_id = str((level or {}).get("id") or "")
     if level_id:
         import rooms
+
         for r in rooms.get_all_rooms():
             cond = r.get("escape_condition") or {}
             if str(cond.get("puzzle_id")) == level_id:
