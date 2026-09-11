@@ -317,3 +317,27 @@ def format_secret_room_discovery(room: Dict) -> str:
     )
 
 
+def format_sequence_submission(result: Dict) -> str:
+    """Format the result of an audio tone sequence submission."""
+    success = result.get("success", False)
+    rid = result.get("room_id", "")
+    msg = result.get("message", "")
+    seq = result.get("sequence_submitted", [])
+    if success:
+        return (
+            f"🎶 [SUCCESS] Harmonic Resonance Achieved in [{rid}]!\n"
+            f"🎵 Sequence Played: {' -> '.join(seq)}\n"
+            f"✨ {msg}\n"
+            f"🏆 Chamber Escaped (+{result.get('xp_awarded', 150)} XP)"
+        )
+    else:
+        matched = result.get("matched_tones_count", 0)
+        expected_len = result.get("expected_length", 0)
+        return (
+            f"❌ [DISSONANCE] Harmonic Sequence Failed in [{rid}]:\n"
+            f"🎵 Sequence Played: {' -> '.join(seq) if seq else '(empty)'}\n"
+            f"🔍 Matched {matched}/{expected_len} initial tones.\n"
+            f"⚠️ {msg}"
+        )
+
+

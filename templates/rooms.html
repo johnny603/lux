@@ -282,26 +282,57 @@
                 {% endif %}
 
                 <div class="mt-auto pt-2 border-top border-secondary">
-                    {% if room.is_escaped %}
-                    <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-outline-success btn-sm w-100">Review Puzzle #{{ room.escape_condition.puzzle_id }}</a>
-                    {% elif room.is_expired %}
-                    <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
-                        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
-                    </button>
-                    {% elif room.is_unlocked %}
-                    <div class="d-flex gap-2">
-                        <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm flex-grow-1" onclick="enterRoom('{{ room.id }}')">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
-                        {% if room.time_limit_seconds %}
-                        <button class="btn btn-outline-secondary btn-sm" title="Reset Room Timer" onclick="resetRoom('{{ room.id }}')">
-                            <i class="bi bi-arrow-counterclockwise"></i>
+                    {% if room.escape_condition and room.escape_condition.type == 'audio_sequence' %}
+                        {% if room.is_escaped %}
+                        <div class="alert alert-success py-1 px-2 mb-0 small text-center"><i class="bi bi-check-circle-fill me-1"></i>Acoustic Dampeners Unlocked (Escaped)</div>
+                        {% elif room.is_expired %}
+                        <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
+                        </button>
+                        {% elif room.is_unlocked %}
+                        <div class="p-2 bg-black bg-opacity-50 rounded border border-secondary mb-2">
+                            <label class="form-label small text-info mb-1"><i class="bi bi-music-note-beamed me-1"></i>Harmonic Tone Keys:</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="toneSequenceInput" class="form-control bg-dark text-light border-secondary text-uppercase fw-bold" placeholder="e.g. C,E,G,B,D">
+                                <button class="btn btn-outline-warning" type="button" onclick="clearTones()">Clear</button>
+                                <button class="btn btn-primary" type="button" onclick="submitAudioSequence('{{ room.id }}')"><i class="bi bi-play-circle-fill me-1"></i>Harmonize</button>
+                            </div>
+                            <div class="d-flex gap-1 justify-content-between">
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('C')">C</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('D')">D</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('E')">E</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('G')">G</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('B')">B</button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
+                            <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
                         </button>
                         {% endif %}
-                    </div>
                     {% else %}
-                    <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
-                        <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
-                    </button>
+                        {% if room.is_escaped %}
+                        <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-outline-success btn-sm w-100">Review Puzzle #{{ room.escape_condition.puzzle_id }}</a>
+                        {% elif room.is_expired %}
+                        <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
+                        </button>
+                        {% elif room.is_unlocked %}
+                        <div class="d-flex gap-2">
+                            <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm flex-grow-1" onclick="enterRoom('{{ room.id }}')">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
+                            {% if room.time_limit_seconds %}
+                            <button class="btn btn-outline-secondary btn-sm" title="Reset Room Timer" onclick="resetRoom('{{ room.id }}')">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
+                            <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
+                        </button>
+                        {% endif %}
                     {% endif %}
+
                 </div>
             </div>
         </div>
@@ -399,6 +430,50 @@ function interactObject(roomId, objectId, action) {
     .catch(err => {
         console.error(err);
         alert('Network error while interacting with object.');
+    });
+}
+
+function submitTone(tone) {
+    let input = document.getElementById('toneSequenceInput');
+    if (input) {
+        let current = input.value ? input.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+        current.push(tone);
+        input.value = current.join(',');
+    }
+}
+
+function clearTones() {
+    let input = document.getElementById('toneSequenceInput');
+    if (input) {
+        input.value = '';
+    }
+}
+
+function submitAudioSequence(roomId) {
+    let input = document.getElementById('toneSequenceInput');
+    let seq = input ? input.value : '';
+    if (!seq) {
+        alert('Please select or enter tone notes first (e.g. C,E,G).');
+        return;
+    }
+
+    fetch(`/api/v1/rooms/${roomId}/submit-sequence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequence: seq })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('🎉 ' + data.message);
+            window.location.reload();
+        } else {
+            alert('❌ ' + (data.message || 'Sequence failed to resonate.'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while submitting tone sequence.');
     });
 }
 

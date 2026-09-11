@@ -678,6 +678,31 @@ def api_room_unlock(room_id):
     )
 
 
+@app.route("/api/v1/rooms/<room_id>/submit-sequence", methods=["POST"])
+@csrf.exempt
+def api_room_submit_sequence(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    data = request.json or {}
+    sequence = data.get("sequence")
+    if sequence is None and "tones" in data:
+        sequence = data.get("tones")
+
+    if sequence is None:
+        return response(
+            False,
+            error="missing_sequence",
+            message="Please provide a tone 'sequence' (e.g. ['C', 'E', 'G', 'B', 'D']).",
+        ), 400
+
+    state = storage.load_state()
+    res = rooms.submit_room_sequence(room_id, sequence, state=state)
+    status_code = 200 if res.get("success") else 400
+    return jsonify(res), status_code
+
+
 @app.route("/api/v1/rooms/<room_id>/reset", methods=["POST"])
 @csrf.exempt
 def api_room_reset(room_id):

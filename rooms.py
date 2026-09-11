@@ -516,6 +516,96 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
         ],
     },
     {
+        "id": "echoing-corridor",
+        "name": "The Echoing Corridor",
+        "description": (
+            "A dark, abandoned corridor where sounds echo mysteriously. "
+            "Reproduce the harmonic tone sequence to unlock the acoustic dampeners."
+        ),
+        "theme": "audio-echo",
+        "difficulty": 3,
+        "time_limit_seconds": 120,
+        "position": {"x": 2, "y": 2},
+        "connected_rooms": ["room-2", "room-3"],
+        "locked": True,
+        "required_previous_room": "room-2",
+        "unlock_condition": {
+            "type": "room_escaped",
+            "room_id": "room-2",
+            "description": "Escape room-2 (The Compiler Laboratory) to unlock The Echoing Corridor.",
+        },
+        "expected_sequence": ["C", "E", "G", "B", "D"],
+        "atmosphere": {
+            "sights": "Dark stone arches lined with acoustic resonator tubes that vibrate with faint luminescence.",
+            "sounds": "Reverberant tone pulses echoing rhythmically from distant walls.",
+            "smells": "Damp stone, mineral dust, and resonant acoustic chamber air.",
+            "ambient_text": (
+                "You step into a long, cavernous passageway. Crystalline tone chimes hum in the shadows. "
+                "The chamber's acoustic dampeners vibrate with harmonic echoes, waiting for the correct sequence of notes."
+            ),
+            "ascii_art": (
+                "+-----------------------------+\n"
+                "| [TUBE: C]    [TUBE: E]      |\n"
+                "|      \\          /           |\n"
+                "|       [RESONATOR]           |\n"
+                "|      /    |    \\            |\n"
+                "| [TUBE: G] [B]  [TUBE: D]    |\n"
+                "+-----------------------------+"
+            ),
+        },
+        "hints": [
+            {
+                "level": 1,
+                "text": "Listen carefully — the corridor repeats what it hears.",
+                "unlock_condition": "Immediate access / baseline observation",
+            },
+            {
+                "level": 2,
+                "text": "The pattern starts with a single tone and grows.",
+                "unlock_condition": "after 1 failed attempt or 30 seconds",
+            },
+            {
+                "level": 3,
+                "text": "The full sequence is ['C', 'E', 'G', 'B', 'D'].",
+                "unlock_condition": "after 3 failed attempts or 2 minutes",
+            },
+        ],
+        "escape_condition": {
+            "type": "audio_sequence",
+            "description": "Reproduce the tone sequence (C, E, G, B, D) to open the corridor.",
+        },
+        "objects": [
+            {
+                "id": "obj-acoustic-resonator",
+                "name": "Acoustic Resonator Grid",
+                "description": "A brass acoustic console with five tuning keys labeled C, D, E, G, and B.",
+                "is_pickupable": False,
+                "interaction_hint": "Interact to inspect the harmonic tone keys.",
+                "triggers": [
+                    {
+                        "action": "examine",
+                        "message": "The resonator keys are labeled: C, D, E, G, B. Sequence input required.",
+                        "state_effect": "resonator_examined",
+                    }
+                ],
+            },
+            {
+                "id": "obj-tuning-fork",
+                "name": "Harmonic Tuning Fork",
+                "description": "A precision steel tuning fork tuned to concert pitch.",
+                "is_pickupable": True,
+                "interaction_hint": "Pick up to assist in identifying pitch frequencies.",
+                "triggers": [
+                    {
+                        "action": "examine",
+                        "message": "The tuning fork vibrates faintly when near the corridor entrance.",
+                        "state_effect": "tuning_fork_inspected",
+                    }
+                ],
+            },
+        ],
+    },
+    {
         "id": "room-secret-1",
         "name": "The Hidden Glitch Sanctuary",
         "description": (
@@ -1130,4 +1220,97 @@ def get_rooms_map(
         "escaped_rooms": escaped_rooms,
         "grid": grid,
     }
+
+
+def submit_room_sequence(
+    room_id: str,
+    sequence: Any,
+    state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Validate and submit an audio tone sequence for rooms with audio_sequence puzzles (e.g. Echoing Corridor)."""
+    import storage
+
+    if state is None:
+        state = storage.load_state()
+
+    room = get_room(room_id)
+    if not room:
+        return {
+            "success": False,
+            "error": "room_not_found",
+            "message": f"Room '{room_id}' not found.",
+        }
+
+    # Normalize sequence input (list of strings or comma-separated string)
+    if isinstance(sequence, str):
+        raw_tones = [t.strip().upper() for t in sequence.split(",") if t.strip()]
+    elif isinstance(sequence, (list, tuple)):
+        raw_tones = [str(t).strip().upper() for t in sequence if str(t).strip()]
+    else:
+        raw_tones = []
+
+    expected_sequence = [str(t).strip().upper() for t in room.get("expected_sequence", ["C", "E", "G", "B", "D"])]
+
+    # Check expiration if timer is running
+    escaped_rooms = storage.get_escaped_rooms(state)
+    timer_info = storage.get_room_timer(state, room_id, default_limit=room.get("time_limit_seconds"))
+    if timer_info and timer_info.get("is_expired"):
+        return {
+            "success": False,
+            "room_id": room_id,
+            "is_expired": True,
+            "message": "Time limit expired for this chamber! Reset the room to try again.",
+        }
+
+    # Record attempt
+    if raw_tones == expected_sequence:
+        storage.mark_room_escaped(state, room_id)
+        storage.award_xp(state, 150)
+        storage.record_attempt(
+            state,
+            f"room_{room_id}",
+            correct=True,
+            title=room.get("name"),
+            difficulty=f"diff-{room.get('difficulty', 3)}",
+            category="escape_room",
+            attempt_preview=f"Sequence: {','.join(raw_tones)}",
+        )
+        storage.save_state(state)
+        return {
+            "success": True,
+            "room_id": room_id,
+            "sequence_submitted": raw_tones,
+            "expected_sequence": expected_sequence,
+            "is_escaped": True,
+            "xp_awarded": 150,
+            "message": f"Harmonic Resonance Achieved! The tone sequence {raw_tones} resonated through the corridor and disengaged the acoustic locks.",
+        }
+    else:
+        # Check partial sequence match for dynamic feedback
+        matching_count = 0
+        for sub, exp in zip(raw_tones, expected_sequence):
+            if sub == exp:
+                matching_count += 1
+            else:
+                break
+
+        storage.record_attempt(
+            state,
+            f"room_{room_id}",
+            correct=False,
+            title=room.get("name"),
+            difficulty=f"diff-{room.get('difficulty', 3)}",
+            category="escape_room",
+            attempt_preview=f"Sequence: {','.join(raw_tones)}",
+        )
+        storage.save_state(state)
+        return {
+            "success": False,
+            "room_id": room_id,
+            "sequence_submitted": raw_tones,
+            "matched_tones_count": matching_count,
+            "expected_length": len(expected_sequence),
+            "is_escaped": False,
+            "message": f"Dissonance detected! Sequence '{','.join(raw_tones)}' failed to resonate. Listen closely to the harmonic echoes.",
+        }
 

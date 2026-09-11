@@ -24,6 +24,11 @@
     background: linear-gradient(135deg, rgba(25, 5, 35, 0.95), rgba(15, 5, 25, 0.85)) !important;
 }
 
+.room-theme-audio-echo {
+    border-left: 4px solid #00d2ff !important;
+    background: linear-gradient(135deg, rgba(0, 25, 45, 0.95), rgba(5, 15, 30, 0.85)) !important;
+}
+
 .ascii-map-container {
     font-family: 'Courier New', Courier, monospace;
     font-size: 0.75rem;
