@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lux Design Preview & Theme Simulator</title>
+  <style>
+    :root {
+      --room-bg-color: #0b132b;
+      --room-card-bg: rgba(28, 37, 65, 0.85);
+      --room-accent: #6fffe9;
+      --room-accent-secondary: #5bc0be;
+      --room-text-color: #e0fbfc;
+      --room-border-color: rgba(111, 255, 233, 0.3);
+      --room-glow: 0 0 15px rgba(111, 255, 233, 0.4);
+      --font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: #121212;
+      color: #ffffff;
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar controls */
+    .sidebar {
+      width: 320px;
+      background: #1e1e24;
+      padding: 24px;
+      border-right: 1px solid #333;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      overflow-y: auto;
+    }
+
+    .sidebar h2 {
+      font-size: 1.25rem;
+      color: #6fffe9;
+      margin-bottom: 8px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .control-group label {
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+
+    .control-group input[type="color"],
+    .control-group select,
+    .control-group input[type="text"] {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #444;
+      background: #2b2b36;
+      color: #fff;
+    }
+
+    /* Room Simulator Viewport */
+    .simulator-container {
+      flex: 1;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background: #000;
+    }
+
+    .room-viewport {
+      width: 100%;
+      max-width: 900px;
+      height: 550px;
+      border-radius: 12px;
+      border: 2px solid var(--room-border-color);
+      box-shadow: var(--room-glow);
+      background-color: var(--room-bg-color);
+      background-position: center;
+      background-size: cover;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      padding: 30px;
+      position: relative;
+      overflow: hidden;
+      transition: all 0.3s ease;
+    }
+
+    .room-header {
+      background: var(--room-card-bg);
+      border: 1px solid var(--room-border-color);
+      padding: 16px 20px;
+      border-radius: 8px;
+      backdrop-filter: blur(8px);
+    }
+
+    .room-header h1 {
+      font-size: 1.5rem;
+      color: var(--room-accent);
+      margin-bottom: 4px;
+    }
+
+    .room-header p {
+      font-size: 0.95rem;
+      color: var(--room-text-color);
+    }
+
+    .room-interactive-area {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin: auto 0;
+    }
+
+    .interactive-item {
+      background: var(--room-card-bg);
+      border: 1px solid var(--room-border-color);
+      border-radius: 10px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      width: 130px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .interactive-item:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--room-glow);
+      border-color: var(--room-accent);
+    }
+
+    .interactive-item svg {
+      width: 40px;
+      height: 40px;
+      stroke: var(--room-accent);
+    }
+
+    .interactive-item span {
+      font-size: 0.85rem;
+      color: var(--room-text-color);
+      text-align: center;
+    }
+
+    .room-footer {
+      background: var(--room-card-bg);
+      border: 1px solid var(--room-border-color);
+      padding: 12px 20px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .btn-action {
+      background: var(--room-accent);
+      color: #0b132b;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>🎨 Theme Simulator</h2>
+    <div class="control-group">
+      <label for="themePreset">Preset Room Theme</label>
+      <select id="themePreset">
+        <option value="abandoned_lab">Room 1: Abandoned Lab</option>
+        <option value="ancient_tomb">Room 2: Ancient Tomb</option>
+        <option value="cyberpunk_alley">Room 3: Cyberpunk Alley</option>
+        <option value="enchanted_library">Room 4: Enchanted Library</option>
+        <option value="steampunk_workshop">Room 5: Steampunk Workshop</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label for="bgColor">Background Color</label>
+      <input type="color" id="bgColor" value="#0b132b">
+    </div>
+
+    <div class="control-group">
+      <label for="cardBgColor">Card Background</label>
+      <input type="text" id="cardBgColor" value="rgba(28, 37, 65, 0.85)">
+    </div>
+
+    <div class="control-group">
+      <label for="accentColor">Accent Glow Color</label>
+      <input type="color" id="accentColor" value="#6fffe9">
+    </div>
+
+    <div class="control-group">
+      <label for="textColor">Text Color</label>
+      <input type="color" id="textColor" value="#e0fbfc">
+    </div>
+  </div>
+
+  <div class="simulator-container">
+    <div class="room-viewport" id="viewport">
+      <div class="room-header">
+        <h1 id="roomTitle">Abandoned Laboratory</h1>
+        <p id="roomDesc">Flickering fluorescent tubes hum above cold metal benches covered in shattered flasks.</p>
+      </div>
+
+      <div class="room-interactive-area">
+        <div class="interactive-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="7.5" cy="15.5" r="5.5"/>
+            <path d="m21 2-9.6 9.6"/>
+            <path d="m15.5 7.5 3 3"/>
+          </svg>
+          <span>Keycard Reader</span>
+        </div>
+
+        <div class="interactive-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 2v7.31M14 9.3V1.99M8.5 2h7M14 9.3a6.5 6.5 0 1 1-4 0"/>
+            <path d="M5.52 16h12.96"/>
+          </svg>
+          <span>Chemical Flask</span>
+        </div>
+
+        <div class="interactive-item">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/>
+            <path d="M6 6h10"/>
+            <path d="M6 10h10"/>
+          </svg>
+          <span>Research Log</span>
+        </div>
+      </div>
+
+      <div class="room-footer">
+        <span style="font-size: 0.85rem; color: var(--room-text-color);">Interactive Simulation Active</span>
+        <button class="btn-action">Inspect Room</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const presets = {
+      abandoned_lab: {
+        title: "Abandoned Laboratory",
+        desc: "Flickering fluorescent tubes hum above cold metal benches covered in shattered flasks.",
+        bg: "#0b132b",
+        cardBg: "rgba(28, 37, 65, 0.85)",
+        accent: "#6fffe9",
+        text: "#e0fbfc"
+      },
+      ancient_tomb: {
+        title: "Ancient Pharaoh Tomb",
+        desc: "Torches cast dancing shadows on gold-leaf hieroglyphs and sand-covered stone relics.",
+        bg: "#1c1917",
+        cardBg: "rgba(41, 37, 36, 0.85)",
+        accent: "#f59e0b",
+        text: "#fef3c7"
+      },
+      cyberpunk_alley: {
+        title: "Cyberpunk Back-Alley",
+        desc: "Holographic advertisements flicker through the perpetual drizzle over exposed conduits.",
+        bg: "#0f172a",
+        cardBg: "rgba(30, 41, 59, 0.85)",
+        accent: "#ec4899",
+        text: "#f1f5f9"
+      },
+      enchanted_library: {
+        title: "Enchanted Celestial Library",
+        desc: "Endless spiraling shelves glow softly under floating constellation orbs.",
+        bg: "#1e1b4b",
+        cardBg: "rgba(49, 46, 129, 0.85)",
+        accent: "#a855f7",
+        text: "#f3e8ff"
+      },
+      steampunk_workshop: {
+        title: "Clockwork Machinist Workshop",
+        desc: "Brass gears rhythmically click as steam hisses from high-pressure copper valves.",
+        bg: "#271c19",
+        cardBg: "rgba(67, 40, 24, 0.85)",
+        accent: "#d97706",
+        text: "#ffedd5"
+      }
+    };
+
+    const themePreset = document.getElementById('themePreset');
+    const bgColor = document.getElementById('bgColor');
+    const cardBgColor = document.getElementById('cardBgColor');
+    const accentColor = document.getElementById('accentColor');
+    const textColor = document.getElementById('textColor');
+    const roomTitle = document.getElementById('roomTitle');
+    const roomDesc = document.getElementById('roomDesc');
+
+    function applyTheme(p) {
+      document.documentElement.style.setProperty('--room-bg-color', p.bg);
+      document.documentElement.style.setProperty('--room-card-bg', p.cardBg);
+      document.documentElement.style.setProperty('--room-accent', p.accent);
+      document.documentElement.style.setProperty('--room-text-color', p.text);
+      document.documentElement.style.setProperty('--room-border-color', p.accent + '44');
+      document.documentElement.style.setProperty('--room-glow', '0 0 15px ' + p.accent + '55');
+
+      bgColor.value = p.bg.startsWith('#') ? p.bg : '#0b132b';
+      cardBgColor.value = p.cardBg;
+      accentColor.value = p.accent.startsWith('#') ? p.accent : '#6fffe9';
+      textColor.value = p.text.startsWith('#') ? p.text : '#e0fbfc';
+      roomTitle.textContent = p.title;
+      roomDesc.textContent = p.desc;
+    }
+
+    themePreset.addEventListener('change', (e) => {
+      const selected = presets[e.target.value];
+      if (selected) applyTheme(selected);
+    });
+
+    bgColor.addEventListener('input', (e) => {
+      document.documentElement.style.setProperty('--room-bg-color', e.target.value);
+    });
+
+    accentColor.addEventListener('input', (e) => {
+      document.documentElement.style.setProperty('--room-accent', e.target.value);
+      document.documentElement.style.setProperty('--room-border-color', e.target.value + '44');
+      document.documentElement.style.setProperty('--room-glow', '0 0 15px ' + e.target.value + '55');
+    });
+
+    textColor.addEventListener('input', (e) => {
+      document.documentElement.style.setProperty('--room-text-color', e.target.value);
+    });
+  </script>
+</body>
+</html>

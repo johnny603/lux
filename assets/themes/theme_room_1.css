@@ -1,0 +1,10 @@
+/* Room Theme: Abandoned Lab (Room 1) */
+:root {
+  --room-bg-color: #0b132b;
+  --room-card-bg: rgba(28, 37, 65, 0.85);
+  --room-accent: #6fffe9;
+  --room-accent-secondary: #5bc0be;
+  --room-text-color: #e0fbfc;
+  --room-border-color: rgba(111, 255, 233, 0.3);
+  --room-glow: 0 0 15px rgba(111, 255, 233, 0.4);
+}
