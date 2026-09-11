@@ -1,0 +1,507 @@
+{% extends "base.html" %}
+
+{% block title %}Lux - Escape Rooms & Interactive Objects{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-2">
+            <div>
+                <h1 class="h2 mb-1"><i class="bi bi-door-open me-2 text-primary"></i>Escape Facility</h1>
+                <p class="text-muted mb-0">Explore connected chambers, collect & use inventory items, solve technical puzzles, and escape to unlock next areas.</p>
+            </div>
+            <div class="d-flex gap-2">
+                <div class="badge bg-dark border border-secondary p-2 fs-6">
+                    <i class="bi bi-backpack2-fill text-info me-1"></i> Inventory: <span class="text-warning fw-bold">{{ inventory_items|length }}</span> Items
+                </div>
+                <div class="badge bg-dark border border-secondary p-2 fs-6">
+                    <i class="bi bi-shield-lock-fill text-warning me-1"></i> Escaped: <span class="text-success fw-bold">{{ escaped_count }}</span> / {{ total_rooms }} Rooms
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Interactive Facility Map (SVG) -->
+<div class="card bg-dark border-secondary shadow-sm mb-4">
+    <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center py-2">
+        <span class="fw-bold text-light small"><i class="bi bi-diagram-3-fill text-info me-2"></i>Facility Navigation Map</span>
+        <div class="d-flex gap-2 align-items-center">
+            <span class="badge bg-success bg-opacity-75" style="font-size: 0.7rem;"><i class="bi bi-check-circle me-1"></i>Escaped</span>
+            <span class="badge bg-primary bg-opacity-75" style="font-size: 0.7rem;"><i class="bi bi-geo-alt-fill me-1"></i>Current / Active</span>
+            <span class="badge bg-secondary bg-opacity-75" style="font-size: 0.7rem;"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+        </div>
+    </div>
+    <div class="card-body p-3">
+        <div class="map-viewport bg-black bg-opacity-60 rounded border border-secondary border-opacity-50 p-2 text-center position-relative" style="overflow-x: auto;">
+            <svg id="facilitySvgMap" viewBox="0 0 920 180" style="width: 100%; max-width: 900px; height: auto; min-width: 600px;" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                    <linearGradient id="corridorGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stop-color="#0dcaf0" stop-opacity="0.8"/>
+                        <stop offset="100%" stop-color="#0d6efd" stop-opacity="0.8"/>
+                    </linearGradient>
+                    <linearGradient id="activeNodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#0d6efd" stop-opacity="0.9"/>
+                        <stop offset="100%" stop-color="#0dcaf0" stop-opacity="0.4"/>
+                    </linearGradient>
+                    <linearGradient id="escapedNodeGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stop-color="#198754" stop-opacity="0.9"/>
+                        <stop offset="100%" stop-color="#20c997" stop-opacity="0.4"/>
+                    </linearGradient>
+                    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feGaussianBlur stdDeviation="4" result="blur" />
+                        <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                    </filter>
+                </defs>
+
+                <!-- Corridor Connection Lines -->
+                <!-- Room 1 (x: 90) to Room 2 (x: 270) -->
+                <line x1="160" y1="90" x2="230" y2="90" stroke="#495057" stroke-width="4" stroke-dasharray="6,4" />
+                <!-- Room 2 (x: 270) to Room 3 (x: 450) -->
+                <line x1="340" y1="90" x2="410" y2="90" stroke="#495057" stroke-width="4" stroke-dasharray="6,4" />
+                <!-- Room 3 (x: 450) to Room 4 (x: 630) -->
+                <line x1="520" y1="90" x2="590" y2="90" stroke="#495057" stroke-width="4" stroke-dasharray="6,4" />
+                <!-- Room 4 (x: 630) to Room 5 (x: 810) -->
+                <line x1="700" y1="90" x2="770" y2="90" stroke="#495057" stroke-width="4" stroke-dasharray="6,4" />
+
+                {% for rm in rooms %}
+                {% set node_x = (loop.index0 * 180) + 20 %}
+                {% set center_x = node_x + 70 %}
+                
+                <!-- Room Node Group -->
+                <g class="room-node cursor-pointer" onclick="scrollToRoom('{{ rm.id }}')" transform="translate({{ node_x }}, 30)">
+                    <!-- Outer Card -->
+                    <rect x="0" y="0" width="140" height="120" rx="10" ry="10" 
+                          fill="{% if rm.is_escaped %}url(#escapedNodeGrad){% elif rm.id == map_data.current_room_id or rm.is_unlocked %}url(#activeNodeGrad){% else %}#212529{% endif %}" 
+                          stroke="{% if rm.is_escaped %}#198754{% elif rm.id == map_data.current_room_id %}#0dcaf0{% elif rm.is_unlocked %}#0d6efd{% else %}#495057{% endif %}" 
+                          stroke-width="{% if rm.id == map_data.current_room_id %}3{% else %}1.5{% endif %}"
+                          filter="{% if rm.id == map_data.current_room_id %}url(#glow){% else %}none{% endif %}"/>
+                    
+                    <!-- Chamber ID & Position -->
+                    <text x="70" y="24" fill="#adb5bd" font-size="11" font-family="monospace" text-anchor="middle">[{{ rm.id }}] ({{ loop.index0 }},1)</text>
+                    
+                    <!-- Chamber Name -->
+                    <text x="70" y="52" fill="#f8f9fa" font-size="12" font-weight="bold" text-anchor="middle">
+                        {% if rm.name|length > 15 %}{{ rm.name[:13] }}...{% else %}{{ rm.name }}{% endif %}
+                    </text>
+                    
+                    <!-- Status Icon / Text -->
+                    {% if rm.is_escaped %}
+                    <rect x="25" y="75" width="90" height="24" rx="12" fill="#198754" />
+                    <text x="70" y="91" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle">✓ ESCAPED</text>
+                    {% elif rm.id == map_data.current_room_id %}
+                    <rect x="20" y="75" width="100" height="24" rx="12" fill="#0dcaf0" />
+                    <text x="70" y="91" fill="#000000" font-size="10" font-weight="bold" text-anchor="middle">★ CURRENT</text>
+                    {% elif rm.is_unlocked %}
+                    <rect x="25" y="75" width="90" height="24" rx="12" fill="#0d6efd" />
+                    <text x="70" y="91" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle">🔓 UNLOCKED</text>
+                    {% else %}
+                    <rect x="25" y="75" width="90" height="24" rx="12" fill="#495057" />
+                    <text x="70" y="91" fill="#ced4da" font-size="11" font-weight="bold" text-anchor="middle">🔒 LOCKED</text>
+                    {% endif %}
+                </g>
+                {% endfor %}
+            </svg>
+        </div>
+        <div class="d-flex justify-content-between align-items-center mt-2 px-1">
+            <span class="text-muted small" style="font-size: 0.75rem;"><i class="bi bi-info-circle me-1"></i>Click any chamber node above to jump directly to its puzzle and atmospheric controls.</span>
+            <span class="badge bg-dark border border-secondary text-info small" style="font-size: 0.72rem;">Grid Layout: 1x5 Corridor Matrix</span>
+        </div>
+    </div>
+</div>
+
+<!-- Player Inventory Bar / Drawer -->
+<div class="card bg-dark border-secondary shadow-sm mb-4">
+    <div class="card-header bg-transparent border-secondary d-flex justify-content-between align-items-center py-2">
+        <span class="fw-bold text-light small"><i class="bi bi-backpack2 text-warning me-2"></i>Player Inventory</span>
+        <span class="badge bg-secondary" style="font-size: 0.75rem;">{{ inventory_items|length }} item(s) carried</span>
+    </div>
+    <div class="card-body p-3">
+        {% if inventory_items %}
+        <div class="row g-2">
+            {% for item in inventory_items %}
+            <div class="col-sm-6 col-md-4 col-lg-3">
+                <div class="border border-secondary rounded p-2 bg-black bg-opacity-50 h-100 d-flex flex-column justify-content-between">
+                    <div>
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="fw-bold text-warning small">{{ item.name }}</span>
+                            <span class="badge bg-info text-dark" style="font-size: 0.6rem;">Item</span>
+                        </div>
+                        <p class="text-secondary small mb-2" style="font-size: 0.75rem;">{{ item.description }}</p>
+                    </div>
+                    <div class="d-flex gap-1 mt-auto">
+                        <button class="btn btn-outline-info btn-sm py-0 px-2 w-100" style="font-size: 0.7rem;" onclick="useItem('{{ item.id }}')">
+                            <i class="bi bi-magic me-1"></i>Use Item
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="text-muted small py-2 text-center">
+            <i class="bi bi-inbox me-1"></i>Your inventory is empty. Explore rooms and pick up tools to carry them.
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row g-4">
+    {% for room in rooms %}
+    <div class="col-md-6 col-lg-4" id="chamber-card-{{ room.id }}">
+        <div class="card h-100 border room-theme-{{ room.theme|default('cyberpunk-terminal') }} {% if room.is_escaped %}border-success bg-dark text-light{% elif room.is_unlocked %}border-primary bg-dark text-light{% else %}border-secondary bg-dark text-muted opacity-75{% endif %} shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center bg-transparent border-bottom {% if room.is_escaped %}border-success{% elif room.is_expired %}border-danger{% elif room.is_unlocked %}border-primary{% else %}border-secondary{% endif %}">
+                <div>
+                    <span class="fw-bold">{{ room.name }}</span>
+                    {% if room.theme %}
+                    <span class="badge bg-dark border border-secondary text-info ms-1 atmosphere-badge">{{ room.theme }}</span>
+                    {% endif %}
+                </div>
+                {% if room.is_escaped %}
+                <span class="badge bg-success"><i class="bi bi-check-circle-fill me-1"></i>Escaped</span>
+                {% elif room.is_expired %}
+                <span class="badge bg-danger"><i class="bi bi-exclamation-octagon-fill me-1"></i>Time Expired</span>
+                {% elif room.is_unlocked %}
+                <span class="badge bg-primary"><i class="bi bi-unlock-fill me-1"></i>Unlocked</span>
+                {% else %}
+                <span class="badge bg-secondary"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                {% endif %}
+            </div>
+            <div class="card-body d-flex flex-column">
+                <p class="card-text small mb-2">{{ room.description }}</p>
+
+                {% if room.atmosphere %}
+                <div class="mb-3 p-2 rounded bg-black bg-opacity-40 border border-secondary border-opacity-50">
+                    <div class="small text-warning fw-semibold mb-1"><i class="bi bi-compass me-1"></i>Atmosphere & Sensory Cues</div>
+                    <div class="text-secondary small fst-italic mb-2" style="font-size: 0.78rem;">{{ room.atmosphere.ambient_text }}</div>
+                    <div class="d-flex flex-column gap-1 small text-muted" style="font-size: 0.72rem;">
+                        <div><strong class="text-info">👁️ Sights:</strong> {{ room.atmosphere.sights }}</div>
+                        <div><strong class="text-info">👂 Sounds:</strong> {{ room.atmosphere.sounds }}</div>
+                        <div><strong class="text-info">👃 Smells:</strong> {{ room.atmosphere.smells }}</div>
+                    </div>
+                    {% if room.atmosphere.ascii_art %}
+                    <details class="mt-2">
+                        <summary class="text-info small cursor-pointer" style="font-size: 0.72rem;"><i class="bi bi-diagram-3 me-1"></i>Chamber Layout Schematic</summary>
+                        <div class="ascii-map-container mt-1">{{ room.atmosphere.ascii_art }}</div>
+                    </details>
+                    {% endif %}
+                </div>
+                {% endif %}
+
+                <div class="mb-3 small">
+                    <div><strong>Difficulty:</strong> Tier {{ room.difficulty }}</div>
+                    {% if room.time_limit_seconds %}
+                    <div class="mt-1">
+                        <strong>Time Limit:</strong> 
+                        <span class="badge {% if room.is_expired %}bg-danger{% elif room.timer and room.timer.remaining_seconds < 30 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+                            <i class="bi bi-stopwatch me-1"></i>
+                            {% if room.is_escaped %}
+                            Completed in time
+                            {% elif room.timer %}
+                            <span class="countdown-timer" data-remaining="{{ room.timer.remaining_seconds }}" data-room-id="{{ room.id }}">
+                                {{ room.timer.remaining_seconds }}s remaining
+                            </span>
+                            {% else %}
+                            {{ room.time_limit_seconds }}s (starts on entry)
+                            {% endif %}
+                        </span>
+                    </div>
+                    {% endif %}
+                    {% if room.escape_condition %}
+                    <div class="mt-1"><strong>Objective:</strong> {{ room.escape_condition.description }}</div>
+                    {% endif %}
+                </div>
+
+                {% if room.objects %}
+                <div class="mt-2 mb-3">
+                    <h6 class="text-info small fw-bold mb-2"><i class="bi bi-box-seam me-1"></i>Interactive Objects</h6>
+                    <div class="list-group list-group-flush">
+                        {% for obj in room.objects %}
+                        <div class="list-group-item bg-transparent text-light border-secondary p-2 rounded mb-1 bg-opacity-25 bg-black">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <span class="fw-semibold small text-warning">{{ obj.name }}</span>
+                                {% if obj.is_pickupable %}
+                                <span class="badge bg-info text-dark" style="font-size: 0.65rem;">Takeable</span>
+                                {% endif %}
+                            </div>
+                            <p class="small text-secondary mb-1" style="font-size: 0.75rem;">{{ obj.description }}</p>
+                            <div class="d-flex gap-1 mt-1">
+                                <button class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'examine')">Examine</button>
+                                {% if obj.is_pickupable %}
+                                <button class="btn btn-outline-warning btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'pickup')">Pickup</button>
+                                {% else %}
+                                <button class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.7rem;" onclick="interactObject('{{ room.id }}', '{{ obj.id }}', 'interact')">Interact</button>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if room.hints %}
+                <div class="mb-3 small">
+                    <details>
+                        <summary class="text-info cursor-pointer">
+                            <i class="bi bi-lightbulb me-1"></i>Adaptive Hints 
+                            {% if room.hints_data %}
+                            ({{ room.hints_data.unlocked_hints_count }}/{{ room.hints_data.total_hints_count }} unlocked)
+                            {% else %}
+                            ({{ room.hints|length }})
+                            {% endif %}
+                        </summary>
+                        <div class="mt-2 p-2 rounded bg-black bg-opacity-50 border border-secondary">
+                            {% for hint in room.hints %}
+                            <div class="mb-2 pb-2 border-bottom border-secondary border-opacity-50 last:border-0">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="badge {% if hint.level == 1 %}bg-info text-dark{% elif hint.level == 2 %}bg-warning text-dark{% else %}bg-danger{% endif %}" style="font-size: 0.65rem;">
+                                        Level {{ hint.level }}
+                                        {% if hint.level == 1 %}· Subtle Clue
+                                        {% elif hint.level == 2 %}· Guidance
+                                        {% else %}· Direct Solution{% endif %}
+                                    </span>
+                                    {% if hint.is_unlocked %}
+                                    <span class="badge bg-success text-white" style="font-size: 0.6rem;"><i class="bi bi-unlock-fill me-1"></i>Unlocked</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary text-light" style="font-size: 0.6rem;"><i class="bi bi-lock-fill me-1"></i>Locked</span>
+                                    {% endif %}
+                                </div>
+                                <div class="{% if hint.is_unlocked %}text-light{% else %}text-muted fst-italic{% endif %}" style="font-size: 0.8rem;">
+                                    {{ hint.text }}
+                                </div>
+                                {% if not hint.is_unlocked and hint.unlock_condition %}
+                                <div class="text-secondary mt-1" style="font-size: 0.7rem;">
+                                    <i class="bi bi-info-circle me-1"></i>Unlock condition: {{ hint.unlock_condition }}
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </details>
+                </div>
+                {% endif %}
+
+                <div class="mt-auto pt-2 border-top border-secondary">
+                    {% if room.escape_condition and room.escape_condition.type == 'audio_sequence' %}
+                        {% if room.is_escaped %}
+                        <div class="alert alert-success py-1 px-2 mb-0 small text-center"><i class="bi bi-check-circle-fill me-1"></i>Acoustic Dampeners Unlocked (Escaped)</div>
+                        {% elif room.is_expired %}
+                        <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
+                        </button>
+                        {% elif room.is_unlocked %}
+                        <div class="p-2 bg-black bg-opacity-50 rounded border border-secondary mb-2">
+                            <label class="form-label small text-info mb-1"><i class="bi bi-music-note-beamed me-1"></i>Harmonic Tone Keys:</label>
+                            <div class="input-group input-group-sm mb-2">
+                                <input type="text" id="toneSequenceInput" class="form-control bg-dark text-light border-secondary text-uppercase fw-bold" placeholder="e.g. C,E,G,B,D">
+                                <button class="btn btn-outline-warning" type="button" onclick="clearTones()">Clear</button>
+                                <button class="btn btn-primary" type="button" onclick="submitAudioSequence('{{ room.id }}')"><i class="bi bi-play-circle-fill me-1"></i>Harmonize</button>
+                            </div>
+                            <div class="d-flex gap-1 justify-content-between">
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('C')">C</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('D')">D</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('E')">E</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('G')">G</button>
+                                <button class="btn btn-outline-info btn-sm flex-fill fw-bold" onclick="submitTone('B')">B</button>
+                            </div>
+                        </div>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
+                            <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
+                        </button>
+                        {% endif %}
+                    {% else %}
+                        {% if room.is_escaped %}
+                        <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-outline-success btn-sm w-100">Review Puzzle #{{ room.escape_condition.puzzle_id }}</a>
+                        {% elif room.is_expired %}
+                        <button class="btn btn-warning btn-sm w-100" onclick="resetRoom('{{ room.id }}')">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Room & Retry Timer
+                        </button>
+                        {% elif room.is_unlocked %}
+                        <div class="d-flex gap-2">
+                            <a href="/level/{{ room.escape_condition.puzzle_id }}" class="btn btn-primary btn-sm flex-grow-1" onclick="enterRoom('{{ room.id }}')">Enter & Solve #{{ room.escape_condition.puzzle_id }}</a>
+                            {% if room.time_limit_seconds %}
+                            <button class="btn btn-outline-secondary btn-sm" title="Reset Room Timer" onclick="resetRoom('{{ room.id }}')">
+                                <i class="bi bi-arrow-counterclockwise"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                        {% else %}
+                        <button class="btn btn-secondary btn-sm w-100" disabled title="{{ room.unlock_instruction }}">
+                            <i class="bi bi-lock me-1"></i>{{ room.unlock_instruction }}
+                        </button>
+                        {% endif %}
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Modal / Toast for object interaction feedback -->
+<div class="modal fade" id="objectModal" tabindex="-1" aria-labelledby="objectModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-dark text-light border-secondary">
+      <div class="modal-header border-secondary">
+        <h5 class="modal-title" id="objectModalLabel"><i class="bi bi-search me-2 text-warning"></i>Object Inspection</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="objectModalBody">
+        Loading...
+      </div>
+      <div class="modal-footer border-secondary">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function scrollToRoom(roomId) {
+    const el = document.getElementById(`chamber-card-${roomId}`);
+    if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('border-info', 'shadow-lg');
+        setTimeout(() => {
+            el.classList.remove('border-info', 'shadow-lg');
+        }, 2000);
+    }
+}
+
+function enterRoom(roomId) {
+    fetch(`/api/v1/rooms/${roomId}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    }).catch(console.error);
+}
+
+function resetRoom(roomId) {
+    fetch(`/api/v1/rooms/${roomId}/reset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            window.location.reload();
+        } else {
+            alert(data.error || 'Failed to reset room.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while resetting room.');
+    });
+}
+
+function interactObject(roomId, objectId, action) {
+    let url = `/api/v1/rooms/${roomId}/objects/${objectId}/interact`;
+    let method = 'POST';
+    let body = { action: action };
+    if (action === 'pickup') {
+        url = `/api/v1/rooms/${roomId}/objects/${objectId}/pickup`;
+        body = {};
+    }
+
+    fetch(url, {
+        method: method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('objectModalLabel').innerHTML = `<i class="bi bi-search me-2 text-warning"></i>${data.object_name || 'Object'}`;
+            document.getElementById('objectModalBody').innerHTML = `
+                <p class="text-secondary small mb-2">${data.description || ''}</p>
+                <div class="alert alert-info py-2 small mb-0"><i class="bi bi-info-circle me-1"></i>${data.message || 'Action performed.'}</div>
+            `;
+            const modal = new bootstrap.Modal(document.getElementById('objectModal'));
+            modal.show();
+            if (action === 'pickup') {
+                setTimeout(() => window.location.reload(), 1200);
+            }
+        } else {
+            alert(data.error || 'Failed to interact with object.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while interacting with object.');
+    });
+}
+
+function submitTone(tone) {
+    let input = document.getElementById('toneSequenceInput');
+    if (input) {
+        let current = input.value ? input.value.split(',').map(s => s.trim()).filter(Boolean) : [];
+        current.push(tone);
+        input.value = current.join(',');
+    }
+}
+
+function clearTones() {
+    let input = document.getElementById('toneSequenceInput');
+    if (input) {
+        input.value = '';
+    }
+}
+
+function submitAudioSequence(roomId) {
+    let input = document.getElementById('toneSequenceInput');
+    let seq = input ? input.value : '';
+    if (!seq) {
+        alert('Please select or enter tone notes first (e.g. C,E,G).');
+        return;
+    }
+
+    fetch(`/api/v1/rooms/${roomId}/submit-sequence`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sequence: seq })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) {
+            alert('🎉 ' + data.message);
+            window.location.reload();
+        } else {
+            alert('❌ ' + (data.message || 'Sequence failed to resonate.'));
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while submitting tone sequence.');
+    });
+}
+
+function useItem(objectId, targetId, roomId) {
+    roomId = roomId || 'room-1';
+    fetch(`/api/v1/rooms/${roomId}/objects/${objectId}/use`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.ok) {
+            document.getElementById('objectModalLabel').innerHTML = `<i class="bi bi-magic me-2 text-warning"></i>${data.object_name || 'Item Used'}`;
+            document.getElementById('objectModalBody').innerHTML = `
+                <div class="alert alert-success py-2 small mb-2"><i class="bi bi-check-circle me-1"></i>${data.message || 'Item applied.'}</div>
+                ${data.use_effect ? `<p class="text-info small mb-0"><strong>Effect:</strong> ${data.use_effect}</p>` : ''}
+            `;
+            const modal = new bootstrap.Modal(document.getElementById('objectModal'));
+            modal.show();
+        } else {
+            alert(data.error || 'Failed to use item.');
+        }
+    })
+    .catch(err => {
+        console.error(err);
+        alert('Network error while using item.');
+    });
+}
+</script>
+{% endblock %}
