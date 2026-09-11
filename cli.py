@@ -317,6 +317,36 @@ def format_secret_room_discovery(room: Dict) -> str:
     )
 
 
+def format_boss_room(room: Dict, boss_progress: Optional[Dict] = None) -> str:
+    """Format a Checkpoint Boss Room overview and stage status for CLI output."""
+    lines = [
+        "=" * 60,
+        f"👑 CHECKPOINT BOSS BATTLE: {room.get('name', 'Boss Arena')}",
+        "=" * 60,
+        room.get("description", ""),
+        "",
+        "Mascot Guardian: Lux (Penguin Architect)",
+        f"Theme: {room.get('theme', 'boss-showdown')}",
+        "",
+        "STAGES SHOWDOWN:",
+    ]
+    completed = (boss_progress or {}).get("completed_stages", [])
+    stages = room.get("stages", [])
+    for idx, stg in enumerate(stages):
+        status_symbol = "[✓ PASSED]" if idx in completed else f"[STAGE {idx+1}]"
+        lines.append(f"  {status_symbol} {stg.get('title', f'Stage {idx+1}')} ({stg.get('type', 'challenge')})")
+        lines.append(f"      Prompt: {stg.get('prompt', '')}")
+    
+    is_cleared = (boss_progress or {}).get("is_cleared", False)
+    if is_cleared:
+        lines.append("\n🌟 BOSS ROOM STATUS: CLEARED! Boss Token Claimed.")
+    else:
+        current_stg = (boss_progress or {}).get("current_stage", 0)
+        lines.append(f"\n👉 Active Stage: {current_stg + 1} of {len(stages)}")
+    lines.append("=" * 60)
+    return "\n".join(lines)
+
+
 def format_sequence_submission(result: Dict) -> str:
     """Format the result of an audio tone sequence submission."""
     success = result.get("success", False)

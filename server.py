@@ -678,6 +678,39 @@ def api_room_unlock(room_id):
     )
 
 
+@app.route("/api/v1/rooms/<room_id>/boss/submit-stage", methods=["POST"])
+@csrf.exempt
+def api_room_submit_boss_stage(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    data = request.json or {}
+    stage_index = data.get("stage_index")
+    if stage_index is None:
+        return response(
+            False,
+            error="missing_stage_index",
+            message="Missing 'stage_index' in request payload.",
+        ), 400
+
+    try:
+        stage_index = int(stage_index)
+    except (ValueError, TypeError):
+        return response(
+            False,
+            error="invalid_stage_index",
+            message="'stage_index' must be a valid integer.",
+        ), 400
+
+    answer = str(data.get("answer", "")).strip()
+    state = storage.load_state()
+    res = rooms.submit_boss_stage(room_id, stage_index, answer, state=state)
+    if not res.get("success"):
+        return jsonify(res), 400 if res.get("error") != "room_not_found" else 404
+    return jsonify(res), 200
+
+
 @app.route("/api/v1/rooms/<room_id>/submit-sequence", methods=["POST"])
 @csrf.exempt
 def api_room_submit_sequence(room_id):

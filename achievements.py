@@ -11,6 +11,11 @@ ACHIEVEMENTS = [
         "title": "Master of Secrets",
         "description": "Discover all secret chambers hidden throughout the escape facility.",
     },
+    {
+        "id": "checkpoint_guardian_slayer",
+        "title": "Guardian of the Core",
+        "description": "Conquer a Checkpoint Boss Battle Showdown and claim a Boss Token.",
+    },
 ]
 
 
@@ -66,6 +71,18 @@ def evaluate_achievements(state: Dict, levels: Optional[List[Dict]] = None) -> L
             "unlocked_at": _now_iso(),
             "title": meta.get("title", "Master of Secrets"),
             "description": meta.get("description", "Discover all secret chambers."),
+        }
+        newly.append({"id": aid, **unlocked[aid]})
+
+    # Checkpoint boss battle conquest achievement
+    boss_tokens = set(storage.get_boss_tokens(state))
+    if boss_tokens and "checkpoint_guardian_slayer" not in unlocked:
+        aid = "checkpoint_guardian_slayer"
+        meta = _ach_by_id(aid) or {"id": aid}
+        unlocked[aid] = {
+            "unlocked_at": _now_iso(),
+            "title": meta.get("title", "Guardian of the Core"),
+            "description": meta.get("description", "Conquer a Checkpoint Boss Battle Showdown."),
         }
         newly.append({"id": aid, **unlocked[aid]})
 

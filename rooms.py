@@ -751,6 +751,140 @@ DEFAULT_ROOMS: List[Dict[str, Any]] = [
             }
         ],
     },
+    {
+        "id": "boss-room-guardian",
+        "name": "The Guardian's Trial: Lux Showdown",
+        "description": (
+            "A colossal holographic arena where Lux the Mascot stands guard before the primary mainframe. "
+            "A multi-stage checkpoint trial testing mastery of riddles, tools, timing, and system lore."
+        ),
+        "theme": "boss-showdown-trial",
+        "atmosphere": {
+            "sights": (
+                "Dazzling neon arrays pulse in rhythmic cadence around a towering platform. "
+                "A giant holographic Lux penguin mascot watches every movement with inquisitive intensity."
+            ),
+            "sounds": "Thunderous bass drops synched with cascading compiler diagnostics and electronic fanfares.",
+            "smells": "Ionized supercooled air, ozone, and fresh celebratory victory sparklers.",
+            "ambient_text": (
+                "You enter the Checkpoint Boss Arena. The doors seal behind you with a heavy hydraulic hiss. "
+                "Lux, the robotic penguin mascot, activates the four guardian trial stages. "
+                "Prove your mastery to claim the Guardian Boss Token!"
+            ),
+            "ascii_art": (
+                "+===================================+\n"
+                "|      [ BOSS: LUX GUARDIAN ]       |\n"
+                "|            ( o _ o )              |\n"
+                "|            < (   ) >              |\n"
+                "|             /     \\               |\n"
+                "|  STAGE 1 -> 2 -> 3 -> 4 [VICTORY] |\n"
+                "+===================================+"
+            ),
+        },
+        "difficulty": 5,
+        "time_limit_seconds": None,
+        "position": {"x": 3, "y": 3},
+        "connected_rooms": ["room-5"],
+        "locked": True,
+        "is_boss_room": True,
+        "boss_token": "lux_guardian_token",
+        "required_previous_room": "room-5",
+        "unlock_condition": {
+            "type": "previous_room",
+            "room_id": "room-5",
+            "description": "Escape The Central Core to qualify for the Checkpoint Boss Arena.",
+        },
+        "stages": [
+            {
+                "stage_index": 0,
+                "id": "stage-1-riddle",
+                "title": "Stage 1: Knowledge Riddle",
+                "type": "riddle",
+                "prompt": (
+                    "Lux asks: 'I run without legs, compile without syntax error when pure, "
+                    "and am the foundation of all Lux escape modules. What command flag shows dotfiles?'"
+                ),
+                "expected_answer": "-a",
+                "hint": "Think of the basic terminal list hidden files command.",
+            },
+            {
+                "stage_index": 1,
+                "id": "stage-2-inventory",
+                "title": "Stage 2: Tool Deployment",
+                "type": "item_use",
+                "prompt": (
+                    "The Guardian's core requires a keycard or cryptographic token to synchronize. "
+                    "Deploy your access item or type the required token name."
+                ),
+                "expected_answer": "keycard-level-1",
+                "accepted_answers": ["keycard-level-1", "use keycard-level-1", "lux_totem", "keycard"],
+                "hint": "Use the keycard acquired from The Antechamber or The Access Gate.",
+            },
+            {
+                "stage_index": 2,
+                "id": "stage-3-timed-sequence",
+                "title": "Stage 3: High-Frequency Interlock Code",
+                "type": "timed_sequence",
+                "prompt": (
+                    "The security reactor spins at 9600 baud. Enter the override sequence "
+                    "in precise order: 'LUX-CORE-99'."
+                ),
+                "expected_answer": "LUX-CORE-99",
+                "hint": "Type the exact alphanumeric sequence LUX-CORE-99.",
+            },
+            {
+                "stage_index": 3,
+                "id": "stage-4-trivia",
+                "title": "Stage 4: Facility Lore & Architecture",
+                "type": "lore_trivia",
+                "prompt": (
+                    "Lux's final question: 'What is the mascot creature that guards and inspires Lux?'"
+                ),
+                "expected_answer": "penguin",
+                "accepted_answers": ["penguin", "pingu", "tux", "pingu and tux", "lux penguin"],
+                "hint": "Inspired by Pingu and Tux!",
+            },
+        ],
+        "hints": [
+            {
+                "level": 1,
+                "title": "Stage Progression",
+                "text": "The Checkpoint Boss Showdown consists of 4 sequential trial stages. Progress saves per stage.",
+                "unlocked_by_default": True,
+                "attempts_required": 0,
+            },
+            {
+                "level": 2,
+                "title": "Trial Answers",
+                "text": "Review previous terminal commands, items collected in prior chambers, and facility lore.",
+                "unlocked_by_default": False,
+                "attempts_required": 2,
+            },
+            {
+                "level": 3,
+                "title": "Direct Guidance",
+                "text": "Stage 1: -a, Stage 2: keycard-level-1, Stage 3: LUX-CORE-99, Stage 4: penguin.",
+                "unlocked_by_default": False,
+                "attempts_required": 4,
+            },
+        ],
+        "objects": [
+            {
+                "id": "boss-pedestal",
+                "name": "Guardian Altar Pedestal",
+                "description": "An interactive holographic pedestal awaiting stage inputs for the Lux Showdown.",
+                "examinable": True,
+                "takeable": False,
+                "use_effect": "Prompts for stage verification.",
+                "triggers": [
+                    {
+                        "action": "examine",
+                        "message": "The pedestal displays: 'Awaiting Challenger Stage Input. Complete all 4 stages to earn the Boss Token.'",
+                    }
+                ],
+            }
+        ],
+    },
 ]
 
 
@@ -1222,6 +1356,143 @@ def get_rooms_map(
     }
 
 
+def is_boss_room(room_id: str) -> bool:
+    """Check if a room is a Checkpoint Boss Room."""
+    room = get_room(room_id)
+    return bool(room and room.get("is_boss_room"))
+
+
+def get_boss_room_stages(room_id: str) -> List[Dict[str, Any]]:
+    """Return configured stages for a boss battle room."""
+    room = get_room(room_id)
+    if not room or not room.get("is_boss_room"):
+        return []
+    return copy.deepcopy(room.get("stages", []))
+
+
+def submit_boss_stage(
+    room_id: str,
+    stage_index: int,
+    answer: str,
+    state: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Validate a player's answer for a specific stage of a Checkpoint Boss Room."""
+    import achievements
+    import storage
+
+    if state is None:
+        state = storage.load_state()
+
+    room = get_room(room_id)
+    if not room:
+        return {
+            "success": False,
+            "error": "room_not_found",
+            "message": f"Room '{room_id}' not found.",
+        }
+
+    if not room.get("is_boss_room"):
+        return {
+            "success": False,
+            "error": "not_a_boss_room",
+            "message": f"Room '{room_id}' is not a Checkpoint Boss Room.",
+        }
+
+    stages = room.get("stages", [])
+    if not stages:
+        return {
+            "success": False,
+            "error": "no_stages_configured",
+            "message": "No boss battle stages found for this room.",
+        }
+
+    if stage_index < 0 or stage_index >= len(stages):
+        return {
+            "success": False,
+            "error": "invalid_stage_index",
+            "message": f"Stage index {stage_index} is out of bounds (0..{len(stages)-1}).",
+        }
+
+    target_stage = stages[stage_index]
+    normalized_answer = str(answer or "").strip()
+
+    # Determine correctness
+    expected = str(target_stage.get("expected_answer", "")).strip()
+    accepted = [expected.lower()]
+    for alt in target_stage.get("accepted_answers", []):
+        accepted.append(str(alt).strip().lower())
+
+    is_correct = normalized_answer.lower() in accepted or normalized_answer == expected
+
+    # Record attempt in history
+    storage.record_attempt(
+        state,
+        f"boss_{room_id}_s{stage_index}",
+        correct=is_correct,
+        title=f"{room.get('name')} - {target_stage.get('title')}",
+        difficulty=f"diff-{room.get('difficulty', 5)}",
+        category="boss_battle",
+        attempt_preview=normalized_answer[:50],
+    )
+
+    if not is_correct:
+        storage.update_boss_progress(state, room_id, stage_index, passed=False)
+        storage.save_state(state)
+        return {
+            "success": False,
+            "room_id": room_id,
+            "stage_index": stage_index,
+            "stage_passed": False,
+            "stage_title": target_stage.get("title"),
+            "is_boss_cleared": False,
+            "message": f"Trial stage failed: '{normalized_answer}' did not satisfy {target_stage.get('title')}. Try again!",
+            "hint": target_stage.get("hint"),
+        }
+
+    # Stage Passed!
+    storage.update_boss_progress(state, room_id, stage_index, passed=True)
+    is_last_stage = (stage_index == len(stages) - 1)
+    
+    if is_last_stage:
+        token_name = room.get("boss_token", "lux_guardian_token")
+        storage.mark_boss_cleared(state, room_id, token_name=token_name)
+        storage.award_xp(state, 300)
+        unlocked_achievements = achievements.evaluate_achievements(state)
+        storage.save_state(state)
+        return {
+            "success": True,
+            "room_id": room_id,
+            "stage_index": stage_index,
+            "stage_passed": True,
+            "stage_title": target_stage.get("title"),
+            "is_boss_cleared": True,
+            "next_stage": None,
+            "xp_awarded": 300,
+            "boss_token": token_name,
+            "unlocked_achievements": unlocked_achievements,
+            "message": (
+                f"VICTORY! All {len(stages)} stages of {room.get('name')} conquered! "
+                f"You earned the {token_name} and unlocked checkpoint mastery."
+            ),
+        }
+    else:
+        storage.award_xp(state, 50)
+        storage.save_state(state)
+        next_stage_idx = stage_index + 1
+        return {
+            "success": True,
+            "room_id": room_id,
+            "stage_index": stage_index,
+            "stage_passed": True,
+            "stage_title": target_stage.get("title"),
+            "is_boss_cleared": False,
+            "next_stage": next_stage_idx,
+            "next_stage_title": stages[next_stage_idx].get("title"),
+            "xp_awarded": 50,
+            "message": f"Stage passed: {target_stage.get('title')} complete! Proceed to Stage {next_stage_idx + 1}.",
+        }
+
+
 def submit_room_sequence(
     room_id: str,
     sequence: Any,
@@ -1252,7 +1523,6 @@ def submit_room_sequence(
     expected_sequence = [str(t).strip().upper() for t in room.get("expected_sequence", ["C", "E", "G", "B", "D"])]
 
     # Check expiration if timer is running
-    escaped_rooms = storage.get_escaped_rooms(state)
     timer_info = storage.get_room_timer(state, room_id, default_limit=room.get("time_limit_seconds"))
     if timer_info and timer_info.get("is_expired"):
         return {

@@ -85,6 +85,8 @@ def _default_game():
         "discovered_secret_rooms": [],
         "inventory": [],
         "room_timers": {},
+        "boss_tokens": [],
+        "boss_progress": {},
     }
 
 
@@ -196,6 +198,14 @@ def normalize_state(state):
     if not isinstance(room_timers, dict):
         room_timers = {}
     merged_game["room_timers"] = room_timers
+    boss_tokens = game.get("boss_tokens", [])
+    if not isinstance(boss_tokens, list):
+        boss_tokens = []
+    merged_game["boss_tokens"] = [str(t) for t in boss_tokens if t]
+    boss_progress = game.get("boss_progress", {})
+    if not isinstance(boss_progress, dict):
+        boss_progress = {}
+    merged_game["boss_progress"] = boss_progress
     hints_used = game.get("hints_used", {})
     if not isinstance(hints_used, dict):
         hints_used = {}
@@ -589,6 +599,53 @@ def get_hints_used(state: dict, room_id: Optional[str] = None) -> dict | list:
         return list(hints_used.get(str(room_id).strip(), []))
     return copy.deepcopy(hints_used)
 
+
+
+def get_boss_tokens(state: dict) -> list[str]:
+    """Return all boss tokens awarded to the player."""
+    return list(normalize_state(state).get("game", {}).get("boss_tokens", []))
+
+
+def award_boss_token(state: dict, token_name: str) -> dict:
+    """Award a unique boss token to the player state."""
+    game = state.setdefault("game", _default_game())
+    tokens = game.setdefault("boss_tokens", [])
+    if str(token_name) not in tokens:
+        tokens.append(str(token_name))
+    return state
+
+
+def get_boss_progress(state: dict, room_id: str) -> dict:
+    """Get boss showdown stage progress for a given boss room."""
+    progress = state.get("game", {}).get("boss_progress", {}).get(room_id, {})
+    return copy.deepcopy(progress) if isinstance(progress, dict) else {}
+
+
+def update_boss_progress(state: dict, room_id: str, stage_index: int, passed: bool) -> dict:
+    """Update completed stages for a boss battle room."""
+    game = state.setdefault("game", _default_game())
+    all_boss = game.setdefault("boss_progress", {})
+    room_boss = all_boss.setdefault(room_id, {"current_stage": 0, "completed_stages": [], "is_cleared": False})
+    if passed:
+        if stage_index not in room_boss.setdefault("completed_stages", []):
+            room_boss["completed_stages"].append(stage_index)
+        room_boss["current_stage"] = stage_index + 1
+    else:
+        # Restart or keep current stage for retry
+        room_boss["current_stage"] = stage_index
+    return state
+
+
+def mark_boss_cleared(state: dict, room_id: str, token_name: Optional[str] = None) -> dict:
+    """Mark a boss room as fully cleared and award token."""
+    game = state.setdefault("game", _default_game())
+    all_boss = game.setdefault("boss_progress", {})
+    room_boss = all_boss.setdefault(room_id, {"current_stage": 0, "completed_stages": [], "is_cleared": False})
+    room_boss["is_cleared"] = True
+    if token_name:
+        award_boss_token(state, token_name)
+    mark_room_escaped(state, room_id)
+    return state
 
 
 def award_xp(state: dict, amount: int):
