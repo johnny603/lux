@@ -120,3 +120,87 @@ def format_progress_summary(state: Dict, levels: Optional[List[Dict]] = None) ->
     if recent:
         pieces.append("recent " + ", ".join(recent[:3]))
     return " | ".join(pieces)
+
+
+def format_room_objects(objects: Sequence[Dict]) -> str:
+    if not objects:
+        return "No interactive objects found in this chamber."
+    lines = ["Chamber Objects:"]
+    for obj in objects:
+        pickup_tag = "[pickupable]" if obj.get("is_pickupable") else "[static]"
+        lines.append(
+            f"  * {obj.get('name', 'Unknown')} ({obj.get('id', '')}) {pickup_tag}: "
+            f"{obj.get('description', '')}"
+        )
+    return "\n".join(lines)
+
+
+def examine_object(obj: Dict) -> str:
+    if not obj:
+        return "Object not found."
+    lines = [
+        f"=== {obj.get('name')} ===",
+        f"ID: {obj.get('id')}",
+        f"Pickupable: {'Yes' if obj.get('is_pickupable') else 'No'}",
+        f"Description: {obj.get('description')}",
+    ]
+    hint = obj.get("interaction_hint")
+    if hint:
+        lines.append(f"Hint: {hint}")
+    triggers = obj.get("triggers", [])
+    if triggers:
+        lines.append("Actions:")
+        for t in triggers:
+            lines.append(f"  - [{t.get('action')}]: {t.get('message')}")
+    return "\n".join(lines)
+
+
+def format_inventory(inventory_items: Sequence[Dict]) -> str:
+    if not inventory_items:
+        return "Inventory is empty."
+    lines = ["🎒 Player Inventory:"]
+    for item in inventory_items:
+        usable = ""
+        if item.get("usable_on"):
+            usable = f" (Usable on: {', '.join(item.get('usable_on', []))})"
+        name = item.get("name", item.get("id", "Unknown"))
+        oid = item.get("id", "")
+        desc = item.get("description", "")
+        lines.append(f"  * {name} [{oid}]{usable}: {desc}")
+    return "\n".join(lines)
+
+
+def format_room_timer(timer_info: Optional[Dict]) -> str:
+    if not timer_info or not timer_info.get("time_limit_seconds"):
+        return "No active countdown limit."
+    limit = timer_info.get("time_limit_seconds")
+    rem = timer_info.get("remaining_seconds", 0)
+    if timer_info.get("is_expired"):
+        return f"⏱️ TIME EXPIRED! ({limit}s limit exceeded. Reset room to retry)."
+    return f"⏱️ {rem}s remaining (Time limit: {limit}s)"
+
+
+def format_adaptive_hints(hints_data: Optional[Dict]) -> str:
+    if not hints_data or not hints_data.get("hints"):
+        return "No hints available for this chamber."
+    rname = hints_data.get("room_name", "Room")
+    unlocked_cnt = hints_data.get("unlocked_hints_count", 0)
+    total_cnt = hints_data.get("total_hints_count", 0)
+    failed = hints_data.get("failed_attempts", 0)
+    header = (
+        f"💡 Adaptive Hints for {rname} "
+        f"({unlocked_cnt}/{total_cnt} unlocked | failed attempts: {failed}):"
+    )
+    lines = [header]
+    for h in hints_data.get("hints", []):
+        lvl = h.get("level", 1)
+        lvl_tag = {1: "Subtle Clue", 2: "Directional Guidance", 3: "Direct Solution"}.get(
+            lvl, f"Level {lvl}"
+        )
+        if h.get("is_unlocked"):
+            lines.append(f"  [Level {lvl} - {lvl_tag}] ✅ {h.get('text')}")
+        else:
+            cond = h.get("unlock_condition")
+            lines.append(f"  [Level {lvl} - {lvl_tag}] 🔒 {h.get('text')} (Unlock: {cond})")
+    return "\n".join(lines)
+
