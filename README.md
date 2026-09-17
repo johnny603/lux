@@ -131,3 +131,6 @@ PYTHONPATH=. pytest -q
 ## Connect
 [Discord](https://discord.gg/bXK4KFY3n)
 
+### Health endpoint
+
+`GET /health` (or `/api/v1/health` when mounted under the versioned API) should return a lightweight JSON readiness probe for load balancers.
