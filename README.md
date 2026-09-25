@@ -130,5 +130,8 @@ PYTHONPATH=. pytest -q
 
 ## Connect
 [Discord](https://discord.gg/bXK4KFY3n)
+
+--
+
 <a href="https://www.producthunt.com/products/lux-3?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-lux-3" target="_blank" rel="noopener noreferrer"><img alt="Lux - Open-source puzzles for Linux, coding &amp; cybersecurity | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1259707&amp;theme=light&amp;t=1790349638266"></a>
 
