@@ -68,6 +68,12 @@ Optional API endpoints:
 - `/api/v1/contributors`
 - `/contributors`
 
+## Documentation
+
+- [FAQ](docs/FAQ.md)
+- [API reference](docs/API.md)
+- [Deployment guide](docs/DEPLOYMENT.md)
+
 ## CLI Usage & State
 
 The interactive CLI agent stores user progress locally in a JSON state file. By default the state file is located at `~/.lux/state.json`.
@@ -134,4 +140,3 @@ PYTHONPATH=. pytest -q
 --
 
 <a href="https://www.producthunt.com/products/lux-3?embed=true&amp;utm_source=badge-featured&amp;utm_medium=badge&amp;utm_campaign=badge-lux-3" target="_blank" rel="noopener noreferrer"><img alt="Lux - Open-source puzzles for Linux, coding &amp; cybersecurity | Product Hunt" width="250" height="54" src="https://api.producthunt.com/widgets/embed-image/v1/featured.svg?post_id=1259707&amp;theme=light&amp;t=1790349638266"></a>
-
