@@ -1,0 +1,59 @@
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lux-puzzle-platform"
+version = "0.1.0"
+description = "Open-source puzzle and learning platform with a Flask server and AI-assisted CLI agent."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Lux contributors" }]
+keywords = ["ai", "cybersecurity", "flask", "learning", "puzzles"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Flask",
+    "Intended Audience :: Education",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Education",
+    "Topic :: Games/Entertainment :: Puzzle Games",
+]
+dependencies = [
+    "flask>=3.1.3",
+    "flask-wtf>=1.3.0",
+    "gunicorn>=26.2.0",
+    "ollama>=0.6.2",
+    "requests>=2.34.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "bandit>=1.9.4",
+    "pytest>=9.1.1",
+    "ruff>=0.16.5",
+]
+
+[project.urls]
+Homepage = "https://github.com/johnny603/lux"
+Issues = "https://github.com/johnny603/lux/issues"
+
+[tool.setuptools]
+py-modules = [
+    "achievements",
+    "agent",
+    "cli",
+    "contributors",
+    "game_systems",
+    "leaderboard",
+    "learning_paths",
+    "puzzle_generator",
+    "sandbox",
+    "sandbox_audit",
+    "server",
+    "storage",
+]
