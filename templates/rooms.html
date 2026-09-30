@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <section class="panel">
+    <div class="grid two" style="align-items: start;">
+      <div>
+        <h2>Escape Rooms</h2>
+        <p class="muted">Navigate through secure facility chambers. Unlock each room progressively by solving its security puzzle to reach the exit.</p>
+      </div>
+      <div class="stats">
+        <div class="stat">
+          <span class="muted">Escaped</span>
+          <span class="value">{{ escaped_count }} / {{ total_rooms }}</span>
+        </div>
+        <div class="stat">
+          <span class="muted">XP</span>
+          <span class="value">{{ game.xp }}</span>
+        </div>
+        <div class="stat">
+          <span class="muted">Player Level</span>
+          <span class="value">{{ game.level }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual progression path / facility map -->
+    <div style="margin-top: 24px; padding: 16px; background: var(--bg-soft, #1e222b); border-radius: 8px; border: 1px solid var(--border);">
+      <h4 style="margin: 0 0 12px 0; font-size: 0.95rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent-2);">Facility Progression Route</h4>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px; align-items: center;">
+        {% for room in rooms %}
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px; font-size: 0.85rem; font-weight: 500;
+                        {% if room.status == 'escaped' %}background: rgba(46, 160, 67, 0.2); border: 1px solid #2ea043; color: #3fb950;
+                        {% elif room.status == 'unlocked' %}background: rgba(210, 153, 34, 0.2); border: 1px solid #d29922; color: #e3b341;
+                        {% else %}background: rgba(110, 118, 129, 0.1); border: 1px solid #30363d; color: #8b949e;{% endif %}">
+              <span>{% if room.status == 'escaped' %}🔓{% elif room.status == 'unlocked' %}🚪{% else %}🔒{% endif %}</span>
+              <span>{{ room.name }}</span>
+            </div>
+            {% if not loop.last %}
+              <span style="color: var(--muted); font-size: 0.85rem;">&rarr;</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="grid three" style="margin-top: 24px;">
+      {% for room in rooms %}
+        <div class="card {% if room.status == 'locked' %}opacity-75{% endif %}" style="display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+          <div>
+            <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start; margin-bottom: 12px;">
+              <h3 style="margin: 0; display: flex; align-items: center; gap: 8px;">
+                <span>{% if room.status == 'escaped' %}🔓{% elif room.status == 'unlocked' %}🚪{% else %}🔒{% endif %}</span>
+                <span>{{ room.name }}</span>
+              </h3>
+              {% if room.status == 'escaped' %}
+                <span class="badge success">Escaped</span>
+              {% elif room.status == 'unlocked' %}
+                <span class="badge warning">Unlocked</span>
+              {% else %}
+                <span class="badge danger" title="{{ room.unlock_instruction }}" style="cursor: help;">🔒 Locked</span>
+              {% endif %}
+            </div>
+            <p class="muted" style="font-size: 0.95rem; margin-bottom: 16px;">{{ room.description }}</p>
+            
+            <div class="muted-list" style="margin-bottom: 16px;">
+              <span class="chip">Difficulty {{ room.difficulty }}/5</span>
+              {% if room.status == 'locked' %}
+                <span class="chip" style="color: #f85149; border-color: rgba(248, 81, 73, 0.4);" title="{{ room.unlock_instruction }}">
+                  🔒 {{ room.unlock_instruction }}
+                </span>
+              {% elif room.required_previous_room %}
+                <span class="chip">Prerequisite: {{ room.required_previous_room }} (Escaped)</span>
+              {% else %}
+                <span class="chip">Starter Room</span>
+              {% endif %}
+            </div>
+
+            {% if room.hints %}
+              <details style="margin-top: 8px; margin-bottom: 12px; font-size: 0.88rem;">
+                <summary style="cursor: pointer; color: var(--accent-2);">Room Intel & Hints</summary>
+                <ul style="margin-top: 8px; padding-left: 18px; color: var(--muted);">
+                  {% for hint in room.hints %}
+                    <li>{{ hint }}</li>
+                  {% endfor %}
+                </ul>
+              </details>
+            {% endif %}
+          </div>
+
+          <div style="margin-top: 16px; pt: 12px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.85rem; color: var(--muted);">
+              <strong>Task:</strong> {{ room.escape_condition.description }}
+            </div>
+            {% if room.status != 'locked' %}
+              <a href="/puzzles/{{ room.escape_condition.puzzle_id }}" class="badge success" style="padding: 6px 14px; font-weight: bold;">
+                {% if room.status == 'escaped' %}Re-enter{% else %}Solve & Escape &rarr;{% endif %}
+              </a>
+            {% else %}
+              <span class="badge danger" style="opacity: 0.7; cursor: not-allowed;" title="{{ room.unlock_instruction }}">🔒 Locked</span>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  </section>
+{% endblock %}
