@@ -40,7 +40,7 @@ def test_load_contributors_handles_malformed_manifest(tmp_path):
     assert contributors.load_contributors(str(tmp_path / "missing.json")) == []
 
 
-def test_contributor_endpoints(monkeypatch):
+def test_contributor_endpoints(monkeypatch, app_client):
     entries = [
         {
             "login": "ada",
@@ -50,13 +50,12 @@ def test_contributor_endpoints(monkeypatch):
         }
     ]
     monkeypatch.setattr(server.contributors, "load_contributors", lambda: entries)
-    client = server.app.test_client()
 
-    response = client.get("/api/v1/contributors")
+    response = app_client.get("/api/v1/contributors")
     assert response.status_code == 200
     assert response.get_json() == {"contributors": entries}
 
-    response = client.get("/contributors")
+    response = app_client.get("/contributors")
     assert response.status_code == 200
     assert b"Ada Lovelace" in response.data
     assert b"founding-contributor" in response.data

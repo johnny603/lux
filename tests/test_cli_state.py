@@ -4,24 +4,24 @@ import cli
 import storage
 
 
-def test_storage_roundtrip(tmp_path):
-    path = tmp_path / "state.json"
+def test_storage_roundtrip(state_path):
+    path = state_path
     state = {"version": 1, "solved": {}}
     storage.save_state(state, str(path))
     loaded = storage.load_state(str(path))
     assert loaded.get("version") >= 2
 
 
-def test_loads_legacy_state_format(tmp_path):
-    path = tmp_path / "state.json"
+def test_loads_legacy_state_format(state_path):
+    path = state_path
     path.write_text(json.dumps({"solved": ["1", "2"], "achievements": {}}))
     loaded = storage.load_state(str(path))
     assert loaded["version"] >= 2
     assert set(loaded["solved"].keys()) == {"1", "2"}
 
 
-def test_mark_solved_and_get(tmp_path):
-    path = tmp_path / "state.json"
+def test_mark_solved_and_get(state_path):
+    path = state_path
     state = storage.load_state(str(path))
     storage.mark_solved(state, "1", attempts=2)
     storage.save_state(state, str(path))
@@ -43,8 +43,8 @@ def test_sort_levels_respects_difficulty_and_solved():
     assert ordered[-1]["id"] == "2"
 
 
-def test_progress_summary_tracks_streak(tmp_path):
-    state = storage.default_state()
+def test_progress_summary_tracks_streak(default_state):
+    state = default_state
     storage.mark_solved(state, "1", at="2026-08-06T10:00:00+00:00")
     storage.mark_solved(state, "2", at="2026-08-07T10:00:00+00:00")
     storage.mark_solved(state, "3", at="2026-08-07T11:00:00+00:00")
