@@ -120,3 +120,36 @@ def format_progress_summary(state: Dict, levels: Optional[List[Dict]] = None) ->
     if recent:
         pieces.append("recent " + ", ".join(recent[:3]))
     return " | ".join(pieces)
+
+
+def format_room_objects(objects: Sequence[Dict]) -> str:
+    if not objects:
+        return "No interactive objects found in this chamber."
+    lines = ["Chamber Objects:"]
+    for obj in objects:
+        pickup_tag = "[pickupable]" if obj.get("is_pickupable") else "[static]"
+        lines.append(
+            f"  * {obj.get('name', 'Unknown')} ({obj.get('id', '')}) {pickup_tag}: "
+            f"{obj.get('description', '')}"
+        )
+    return "\n".join(lines)
+
+
+def examine_object(obj: Dict) -> str:
+    if not obj:
+        return "Object not found."
+    lines = [
+        f"=== {obj.get('name')} ===",
+        f"ID: {obj.get('id')}",
+        f"Pickupable: {'Yes' if obj.get('is_pickupable') else 'No'}",
+        f"Description: {obj.get('description')}",
+    ]
+    hint = obj.get("interaction_hint")
+    if hint:
+        lines.append(f"Hint: {hint}")
+    triggers = obj.get("triggers", [])
+    if triggers:
+        lines.append("Actions:")
+        for t in triggers:
+            lines.append(f"  - [{t.get('action')}]: {t.get('message')}")
+    return "\n".join(lines)

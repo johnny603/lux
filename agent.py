@@ -310,6 +310,27 @@ def handle_level(choice):
 
 def _handle_menu_choice(choice, state, levels):
     lowered = choice.lower()
+    if lowered in ("rooms", "escape-rooms", "escape"):
+        try:
+            r = requests.get(f"{SERVER}/api/v1/rooms", timeout=5)
+            if r.status_code == 200:
+                summary = r.json()
+                print("\n=== Escape Room Progression Map ===")
+                for rm in summary:
+                    st = rm.get("status")
+                    status_icon = "🔓" if st == "escaped" else ("🚪" if st == "unlocked" else "🔒")
+                    print(f"[{status_icon}] {rm.get('id')}: {rm.get('name')} (Status: {st})")
+                    if st == "locked":
+                        print(f"     Lock Info: {rm.get('unlock_instruction')}")
+                    else:
+                        task_desc = rm.get("escape_condition", {}).get("description")
+                        print(f"     Objective: {task_desc}")
+                print("===================================\n")
+            else:
+                print("Could not retrieve escape rooms from server.")
+        except Exception as exc:
+            print("Escape rooms unavailable:", exc)
+        return True
     if lowered in ("ach", "achievements"):
         ach = state.get("achievements", {})
         if not ach:
