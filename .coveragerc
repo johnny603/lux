@@ -1,0 +1,10 @@
+[run]
+source = .
+omit =
+    tests/*
+    migrations/*
+    scripts/*
+
+[report]
+fail_under = 60
+show_missing = True
