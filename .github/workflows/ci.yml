@@ -20,9 +20,10 @@ jobs:
         with:
           python-version: "3.12"
 
-      - run: pip install ruff
+      - run: pip install ruff mypy
       - run: ruff check .
       - run: ruff format --check .
+      - run: mypy
 
   test:
     runs-on: ubuntu-latest

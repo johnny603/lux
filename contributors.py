@@ -1,11 +1,11 @@
 import json
 import os
-from typing import Any, Dict, List
+from typing import Any
 
 DEFAULT_MANIFEST = os.path.join(os.path.dirname(__file__), "contributors.json")
 
 
-def load_contributors(path: str = DEFAULT_MANIFEST) -> List[Dict[str, Any]]:
+def load_contributors(path: str = DEFAULT_MANIFEST) -> list[dict[str, Any]]:
     """Load a contributor manifest, returning an empty list for bad optional data."""
     try:
         with open(path, encoding="utf-8") as handle:
@@ -17,7 +17,7 @@ def load_contributors(path: str = DEFAULT_MANIFEST) -> List[Dict[str, Any]]:
     if not isinstance(entries, list):
         return []
 
-    valid = []
+    valid: list[dict[str, Any]] = []
     for entry in entries:
         if not isinstance(entry, dict) or not entry.get("login"):
             continue

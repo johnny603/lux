@@ -1,7 +1,7 @@
 import json
 import os
 from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from typing import Any
 
 
 def audit_path() -> str:
@@ -11,7 +11,7 @@ def audit_path() -> str:
     )
 
 
-def record_execution(event: Dict[str, Any], path: Optional[str] = None) -> None:
+def record_execution(event: dict[str, Any], path: str | None = None) -> None:
     """Append one privacy-conscious sandbox event without exposing submitted source."""
     target = path or audit_path()
     directory = os.path.dirname(target)
