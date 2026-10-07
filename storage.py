@@ -1,12 +1,21 @@
+import argparse
 import copy
 import json
 import os
+import sqlite3
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
 
 DEFAULT_STATE_ENV = "LUX_STATE"
+DEFAULT_DB_ENV = "LUX_DB"
 STATE_VERSION = 2
 RECENT_ACTIVITY_LIMIT = 50
+MIGRATIONS_DIR = Path(__file__).resolve().parent / "migrations"
+
+
+class MigrationError(RuntimeError):
+    """Raised when migration files are malformed or cannot be applied safely."""
 
 
 def _utc_now():
@@ -92,6 +101,134 @@ def default_state_path():
     except Exception:
         pass
     return os.path.join(cfg_dir, "state.json")
+
+
+def default_db_path():
+    path = os.getenv(DEFAULT_DB_ENV)
+    if path:
+        return path
+    home = os.path.expanduser("~")
+    cfg_dir = os.path.join(home, ".lux")
+    try:
+        os.makedirs(cfg_dir, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(cfg_dir, "lux.db")
+
+
+def _migration_files(migrations_dir=None):
+    migrations_path = Path(migrations_dir or MIGRATIONS_DIR)
+    files = sorted(migrations_path.glob("*.sql"))
+    seen = []
+    for file_path in files:
+        prefix = file_path.name.split("_", 1)[0]
+        if not (len(prefix) == 3 and prefix.isdigit()):
+            raise MigrationError(f"Invalid migration filename: {file_path.name}")
+        seen.append(int(prefix))
+
+    expected = list(range(1, len(seen) + 1))
+    if seen != expected:
+        raise MigrationError(
+            "Migration files must be numbered contiguously starting at 001"
+        )
+    return files
+
+
+def _ensure_migrations_table(conn):
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            filename TEXT PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+
+def _ensure_db_parent(db_path):
+    parent = Path(db_path).expanduser().parent
+    parent.mkdir(parents=True, exist_ok=True)
+
+
+def _applied_migrations(conn):
+    _ensure_migrations_table(conn)
+    rows = conn.execute("SELECT filename FROM schema_migrations ORDER BY filename").fetchall()
+    return {row[0] for row in rows}
+
+
+def pending_migrations(db_path=None, migrations_dir=None):
+    db_path = db_path or default_db_path()
+    _ensure_db_parent(db_path)
+    files = _migration_files(migrations_dir)
+    with sqlite3.connect(db_path) as conn:
+        applied = _applied_migrations(conn)
+    return [file_path.name for file_path in files if file_path.name not in applied]
+
+
+def apply_migrations(db_path=None, migrations_dir=None):
+    db_path = db_path or default_db_path()
+    _ensure_db_parent(db_path)
+    files = _migration_files(migrations_dir)
+    applied_now = []
+
+    with sqlite3.connect(db_path) as conn:
+        applied = _applied_migrations(conn)
+        for file_path in files:
+            if file_path.name in applied:
+                continue
+            sql = file_path.read_text(encoding="utf-8")
+            escaped_name = file_path.name.replace("'", "''")
+            try:
+                conn.executescript(
+                    f"""
+                    BEGIN;
+                    {sql}
+                    INSERT INTO schema_migrations (filename)
+                    VALUES ('{escaped_name}');
+                    COMMIT;
+                    """
+                )
+            except sqlite3.Error:
+                try:
+                    conn.execute("ROLLBACK")
+                except sqlite3.Error:
+                    pass
+                raise
+            applied_now.append(file_path.name)
+            applied.add(file_path.name)
+
+    return applied_now
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Apply Lux database migrations.")
+    parser.add_argument("--db", default=None, help="SQLite database path")
+    parser.add_argument(
+        "--migrations",
+        default=None,
+        help="Directory containing numbered .sql migration files",
+    )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print pending migrations without applying them",
+    )
+    args = parser.parse_args(argv)
+
+    if args.dry_run:
+        pending = pending_migrations(args.db, args.migrations)
+        if pending:
+            print("\n".join(pending))
+        else:
+            print("No pending migrations.")
+        return 0
+
+    applied = apply_migrations(args.db, args.migrations)
+    if applied:
+        print("\n".join(f"Applied {name}" for name in applied))
+    else:
+        print("No pending migrations.")
+    return 0
 
 
 def _normalize_solved_entry(entry, now=None):
@@ -429,3 +566,7 @@ def get_progress_summary(state: dict, levels=None):
         "recent_solved": meta.get("recent_solved", [])[:5],
         "last_solved_at": meta.get("last_solved_at"),
     }
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

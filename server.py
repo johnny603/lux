@@ -17,6 +17,7 @@ app.secret_key = os.getenv("LUX_SECRET_KEY") or os.urandom(32).hex()
 app.config["WTF_CSRF_SECRET_KEY"] = os.getenv("LUX_CSRF_SECRET_KEY") or os.urandom(32).hex()
 ERROR_NOT_FOUND = "not found"
 csrf = CSRFProtect(app)
+storage.apply_migrations()
 
 PUZZLES = [
     {

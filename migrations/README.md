@@ -1,13 +1,38 @@
 # Database migrations
 
-This directory is reserved for the database-backed progress and authentication migration set.
+Lux migrations are plain SQLite `.sql` files applied by `storage.apply_migrations`.
+The current application still stores player progress in the local JSON state file; the
+initial migration records that baseline so later schema changes have a stable starting
+point.
 
-The current application uses `storage.py` and a local JSON state file. Before public multi-user deployment:
+## Naming
 
-1. Introduce a repository abstraction behind `storage.py`.
-2. Use SQLite for single-instance installations and PostgreSQL for hosted deployments.
-3. Add migrations for users, refresh tokens, profiles, puzzle attempts, solves, and achievements.
-4. Make `DATABASE_URL` select the backend and run migrations as a release step, not during web requests.
-5. Keep an export/import path from `~/.lux/state.json` for existing CLI users.
+Use `NNN_short_description.sql`, where `NNN` is a zero-padded, contiguous number:
 
-Do not treat the Compose PostgreSQL service as active application persistence until these migrations and repository changes land.
+- `001_init.sql`
+- `002_add_profiles.sql`
+- `003_add_attempts.sql`
+
+Never renumber migrations after they are merged. A correction to a merged migration is
+a new higher-numbered migration, not an edit to the old file.
+
+## Running
+
+The Flask server applies pending migrations on startup. By default the SQLite database
+lives at `~/.lux/lux.db`; set `LUX_DB=/path/to/lux.db` to use another file.
+
+To inspect pending migrations without applying them:
+
+```bash
+python -m storage --dry-run
+```
+
+To apply migrations explicitly:
+
+```bash
+python -m storage
+```
+
+The runner keeps applied filenames in `schema_migrations(filename, applied_at)` and
+applies each pending file in its own transaction. Down-migrations and third-party
+migration libraries are intentionally out of scope.
