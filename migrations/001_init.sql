@@ -1,0 +1,2 @@
+-- Baseline migration for the current JSON-backed Lux state.
+-- Application progress is still stored by storage.py in the local JSON state file.
