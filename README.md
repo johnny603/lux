@@ -128,6 +128,10 @@ PYTHONPATH=. pytest -q
 - Add secure sandbox execution for C compilation and run (via Firecracker, gVisor, or chrooted containers).
 - See [docs/MENTORSHIP_ISSUES.md](docs/MENTORSHIP_ISSUES.md) for scoped starter contributions.
 
+## Troubleshooting
+
+See [docs/FAQ.md](docs/FAQ.md) for solutions to common setup and development questions.
+
 ## Connect
 [Discord](https://discord.gg/bXK4KFY3n)
 
