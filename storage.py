@@ -1,8 +1,11 @@
+from __future__ import annotations
+
 import copy
 import json
 import os
 import tempfile
 from datetime import datetime, timezone
+from typing import Optional
 
 DEFAULT_STATE_ENV = "LUX_STATE"
 STATE_VERSION = 2
@@ -78,6 +81,10 @@ def _default_game():
         "level": 1,
         "daily": {"last_challenge_date": None, "completed_dates": []},
         "adventure": {"current_world": None, "unlocked_worlds": [], "campaign_progress": {}},
+        "escaped_rooms": [],
+        "discovered_secret_rooms": [],
+        "inventory": [],
+        "room_timers": {},
     }
 
 
@@ -173,6 +180,26 @@ def normalize_state(state):
     if not isinstance(adventure, dict):
         adventure = {}
     merged_game["adventure"] = {**game_defaults["adventure"], **adventure}
+    escaped_rooms = game.get("escaped_rooms", [])
+    if not isinstance(escaped_rooms, list):
+        escaped_rooms = []
+    merged_game["escaped_rooms"] = [str(r) for r in escaped_rooms if r]
+    discovered_secrets = game.get("discovered_secret_rooms", [])
+    if not isinstance(discovered_secrets, list):
+        discovered_secrets = []
+    merged_game["discovered_secret_rooms"] = [str(r) for r in discovered_secrets if r]
+    inventory = game.get("inventory", [])
+    if not isinstance(inventory, list):
+        inventory = []
+    merged_game["inventory"] = [str(i) for i in inventory if i]
+    room_timers = game.get("room_timers", {})
+    if not isinstance(room_timers, dict):
+        room_timers = {}
+    merged_game["room_timers"] = room_timers
+    hints_used = game.get("hints_used", {})
+    if not isinstance(hints_used, dict):
+        hints_used = {}
+    merged_game["hints_used"] = hints_used
     normalized["game"] = merged_game
 
     meta = normalized.get("meta", {})
@@ -394,6 +421,174 @@ def update_profile(state: dict, *, display_name=None, preferences=None):
 
 def get_game_state(state: dict):
     return normalize_state(state).get("game", _default_game())
+
+
+def get_escaped_rooms(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("escaped_rooms", []))
+
+
+def mark_room_escaped(state: dict, room_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    escaped = game.setdefault("escaped_rooms", [])
+    rid = str(room_id).strip()
+    if rid and rid not in escaped:
+        escaped.append(rid)
+    state.update(normalized)
+    return state
+
+
+def get_discovered_secret_rooms(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("discovered_secret_rooms", []))
+
+
+def discover_secret_room(state: dict, room_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    secrets = game.setdefault("discovered_secret_rooms", [])
+    rid = str(room_id).strip()
+    if rid and rid not in secrets:
+        secrets.append(rid)
+    state.update(normalized)
+    return state
+
+
+def is_secret_room_discovered(state: dict, room_id: str) -> bool:
+    return str(room_id).strip() in get_discovered_secret_rooms(state)
+
+
+def get_inventory(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("inventory", []))
+
+
+def add_inventory_item(state: dict, object_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    inv = game.setdefault("inventory", [])
+    oid = str(object_id).strip()
+    if oid and oid not in inv:
+        inv.append(oid)
+    state.update(normalized)
+    return state
+
+
+def remove_inventory_item(state: dict, object_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    inv = game.setdefault("inventory", [])
+    oid = str(object_id).strip()
+    if oid in inv:
+        inv.remove(oid)
+    state.update(normalized)
+    return state
+
+
+def has_inventory_item(state: dict, object_id: str) -> bool:
+    return str(object_id).strip() in get_inventory(state)
+
+
+def start_room_timer(state: dict, room_id: str, time_limit_seconds: int) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    timers = game.setdefault("room_timers", {})
+    rid = str(room_id).strip()
+    now_dt = _utc_now()
+    now_iso = now_dt.isoformat()
+    if rid:
+        # If timer is not active or already expired, start fresh timer
+        existing = timers.get(rid)
+        should_start = True
+        if existing and existing.get("started_at"):
+            start_dt = _parse_date(existing["started_at"])
+            if start_dt:
+                elapsed = (now_dt - start_dt).total_seconds()
+                limit = int(
+                    existing.get("time_limit_seconds", time_limit_seconds)
+                    or time_limit_seconds
+                )
+                if elapsed < limit:
+                    # Already actively running
+                    should_start = False
+        if should_start:
+            timers[rid] = {
+                "room_id": rid,
+                "started_at": now_iso,
+                "time_limit_seconds": int(time_limit_seconds),
+            }
+    state.update(normalized)
+    return state
+
+
+def get_room_timer(
+    state: dict, room_id: str, default_limit: Optional[int] = None
+) -> Optional[dict]:
+    normalized = normalize_state(state)
+    game = normalized.get("game", {})
+    timers = game.get("room_timers", {})
+    rid = str(room_id).strip()
+    entry = timers.get(rid)
+    if not entry or not entry.get("started_at"):
+        return None
+    limit = int(entry.get("time_limit_seconds", default_limit or 0) or (default_limit or 0))
+    start_dt = _parse_date(entry["started_at"])
+    if not start_dt:
+        return None
+    now_dt = _utc_now()
+    elapsed = max(0.0, (now_dt - start_dt).total_seconds())
+    remaining = max(0, int(limit - elapsed))
+    is_expired = (limit > 0) and (elapsed >= limit)
+    return {
+        "room_id": rid,
+        "started_at": entry["started_at"],
+        "time_limit_seconds": limit,
+        "elapsed_seconds": int(elapsed),
+        "remaining_seconds": remaining,
+        "is_expired": is_expired,
+    }
+
+
+def reset_room_timer(state: dict, room_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    timers = game.setdefault("room_timers", {})
+    rid = str(room_id).strip()
+    if rid in timers:
+        del timers[rid]
+    state.update(normalized)
+    return state
+
+
+def record_hint_usage(
+    state: dict,
+    room_id: str,
+    hint_level: int,
+    hint_text: str = "",
+) -> dict:
+    """Record hint revealed/requested by player for analytics and state tracking."""
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    hints_used = game.setdefault("hints_used", {})
+    rid = str(room_id).strip()
+    now_iso = _iso_now()
+    room_hints = hints_used.setdefault(rid, [])
+    entry = {
+        "level": int(hint_level),
+        "requested_at": now_iso,
+        "hint_preview": hint_text[:100] if hint_text else "",
+    }
+    room_hints.append(entry)
+    state.update(normalized)
+    return state
+
+
+def get_hints_used(state: dict, room_id: Optional[str] = None) -> dict | list:
+    """Get hint usage logs across all rooms or for a specific room."""
+    normalized = normalize_state(state)
+    hints_used = normalized.get("game", {}).get("hints_used", {})
+    if room_id:
+        return list(hints_used.get(str(room_id).strip(), []))
+    return copy.deepcopy(hints_used)
+
 
 
 def award_xp(state: dict, amount: int):

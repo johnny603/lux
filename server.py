@@ -9,6 +9,7 @@ import game_systems
 import leaderboard
 import learning_paths
 import puzzle_generator
+import rooms
 import storage
 from sandbox import DockerSandbox, get_runtime
 
@@ -602,6 +603,291 @@ def api_adventure():
 def api_daily():
     state = storage.load_state()
     return jsonify(game_systems.daily_challenge_status(state, catalog_levels()))
+
+
+@app.route("/api/v1/rooms", methods=["GET"])
+def api_rooms():
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped_rooms, state=state)
+    return jsonify(summary)
+
+
+@app.route("/api/v1/rooms/map", methods=["GET"])
+def api_rooms_map():
+    state = storage.load_state()
+    current_room_id = request.args.get("current_room_id")
+    map_data = rooms.get_rooms_map(state=state, current_room_id=current_room_id)
+    return jsonify(map_data)
+
+
+@app.route("/api/v1/rooms/<room_id>", methods=["GET"])
+def api_room_detail(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    decorated = rooms.decorate_room(r, escaped_rooms, state=state)
+    return jsonify(decorated)
+
+
+@app.route("/api/v1/rooms/<room_id>/unlock", methods=["POST"])
+@csrf.exempt
+def api_room_unlock(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    unlocked = rooms.is_room_unlocked(r, escaped_rooms, state=state)
+    if not unlocked:
+        instruction = (r.get("unlock_condition") or {}).get(
+            "description", "Unlock condition not met."
+        )
+        return (
+            response(
+                False,
+                error="Room is locked",
+                room_id=room_id,
+                unlocked=False,
+                unlock_condition=r.get("unlock_condition"),
+                unlock_instruction=instruction,
+            ),
+            403,
+        )
+
+    # If the room has a time limit and player is unlocking/entering, start timer if needed
+    time_limit = r.get("time_limit_seconds")
+    if time_limit and room_id not in escaped_rooms:
+        storage.start_room_timer(state, room_id, time_limit)
+        storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+
+    return response(
+        True,
+        room_id=room_id,
+        unlocked=True,
+        timer=timer_info,
+        message=f"Room {room_id} is unlocked and accessible.",
+    )
+
+
+@app.route("/api/v1/rooms/<room_id>/submit-sequence", methods=["POST"])
+@csrf.exempt
+def api_room_submit_sequence(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    data = request.json or {}
+    sequence = data.get("sequence")
+    if sequence is None and "tones" in data:
+        sequence = data.get("tones")
+
+    if sequence is None:
+        return response(
+            False,
+            error="missing_sequence",
+            message="Please provide a tone 'sequence' (e.g. ['C', 'E', 'G', 'B', 'D']).",
+        ), 400
+
+    state = storage.load_state()
+    res = rooms.submit_room_sequence(room_id, sequence, state=state)
+    status_code = 200 if res.get("success") else 400
+    return jsonify(res), status_code
+
+
+@app.route("/api/v1/rooms/<room_id>/reset", methods=["POST"])
+@csrf.exempt
+def api_room_reset(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    if room_id in escaped_rooms:
+        return response(False, error="Room already escaped and completed."), 400
+
+    # Reset timer and restart if timed room
+    storage.reset_room_timer(state, room_id)
+    time_limit = r.get("time_limit_seconds")
+    if time_limit:
+        storage.start_room_timer(state, room_id, time_limit)
+    storage.save_state(state)
+
+    timer_info = (
+        storage.get_room_timer(state, room_id, default_limit=time_limit)
+        if time_limit
+        else None
+    )
+    return response(
+        True,
+        room_id=room_id,
+        reset=True,
+        timer=timer_info,
+        message=f"Room {room_id} has been reset.",
+    )
+
+
+@app.route("/api/v1/rooms/<room_id>/objects", methods=["GET"])
+def api_room_objects(room_id):
+    objs = rooms.get_room_objects(room_id)
+    if objs is None:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return jsonify(objs)
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/interact", methods=["POST"])
+@csrf.exempt
+def api_room_object_interact(room_id, object_id):
+    data = request.json or {}
+    action = (data.get("action") or "interact").strip().lower()
+    state = storage.load_state()
+    result = rooms.interact_with_object(room_id, object_id, action=action, state=state)
+    if not result:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return response(
+        True,
+        **result
+    )
+
+
+@app.route("/api/v1/inventory", methods=["GET"])
+def api_inventory():
+    state = storage.load_state()
+    inv_ids = storage.get_inventory(state)
+    items = []
+    for iid in inv_ids:
+        obj = rooms.find_object_across_rooms(iid)
+        if obj:
+            items.append(obj)
+        else:
+            items.append({"id": iid, "name": iid, "description": ""})
+    return jsonify({"ok": True, "inventory": inv_ids, "items": items})
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/pickup", methods=["POST"])
+@csrf.exempt
+def api_room_object_pickup(room_id, object_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    res = rooms.pickup_object(room_id, object_id, state=state)
+    if not res:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    if not res.get("success"):
+        return response(False, error=res.get("error", "Cannot pickup object")), 400
+    storage.save_state(state)
+    return response(True, **res)
+
+
+@app.route("/api/v1/rooms/<room_id>/objects/<object_id>/use", methods=["POST"])
+@csrf.exempt
+def api_room_object_use(room_id, object_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    data = (request.get_json(silent=True) or {}) if request.is_json else (request.form or {})
+    target_id = data.get("target_id") or data.get("target")
+    state = storage.load_state()
+    res = rooms.use_object(room_id, object_id, target_id=target_id, state=state)
+    if not res:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    if not res.get("success"):
+        return response(False, error=res.get("error", "Cannot use object")), 400
+    storage.save_state(state)
+    return response(True, **res)
+
+
+@app.route("/api/v1/rooms/<room_id>/hints", methods=["GET"])
+def api_room_hints(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    hints_data = rooms.get_adaptive_room_hints(room_id, state=state)
+    if not hints_data:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    return jsonify(hints_data)
+
+
+@app.route("/api/v1/rooms/<room_id>/hints/<int:hint_level>/reveal", methods=["POST"])
+@csrf.exempt
+def api_room_hint_reveal(room_id, hint_level):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    hints_data = rooms.get_adaptive_room_hints(room_id, state=state)
+    if not hints_data:
+        return response(False, error=ERROR_NOT_FOUND), 404
+
+    target_hint = next(
+        (h for h in hints_data.get("hints", []) if h.get("level") == hint_level),
+        None,
+    )
+    if not target_hint:
+        return response(False, error=f"Hint level {hint_level} not found for this room"), 404
+
+    if not target_hint.get("is_unlocked"):
+        return (
+            response(
+                False,
+                error=(
+                    f"Hint level {hint_level} is still locked. "
+                    f"Requirement: {target_hint.get('unlock_condition')}"
+                ),
+                hint_level=hint_level,
+                is_unlocked=False,
+                unlock_condition=target_hint.get("unlock_condition"),
+            ),
+            403,
+        )
+
+    storage.record_hint_usage(
+        state, room_id, hint_level=hint_level, hint_text=target_hint.get("text", "")
+    )
+    storage.save_state(state)
+    return response(
+        True,
+        room_id=room_id,
+        hint_level=hint_level,
+        is_unlocked=True,
+        text=target_hint.get("text"),
+        unlock_condition=target_hint.get("unlock_condition"),
+    )
+
+
+
+@app.route("/rooms", methods=["GET"])
+def web_rooms():
+    state = storage.load_state()
+    escaped = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped, state=state)
+    escaped_count = len(escaped)
+    inventory_ids = storage.get_inventory(state)
+    inventory_items = [
+        rooms.find_object_across_rooms(iid) or {"id": iid, "name": iid, "description": ""}
+        for iid in inventory_ids
+    ]
+    map_data = rooms.get_rooms_map(state=state)
+    return render_template(
+        "rooms.html",
+        rooms=summary,
+        escaped_count=escaped_count,
+        total_rooms=len(summary),
+        inventory_items=inventory_items,
+        map_data=map_data,
+        game=storage.get_game_state(state),
+        progress=storage.get_progress_summary(state, catalog_levels()),
+    )
 
 
 @app.route("/api/v1/puzzles/generate", methods=["POST"])
