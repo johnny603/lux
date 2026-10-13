@@ -17,6 +17,7 @@ def test_load_contributors_normalizes_entries(tmp_path):
                         "badges": ["founding-contributor"],
                     },
                     {"name": "missing login"},
+                    {"login": "grace", "contributions": ["compiler", ""], "badges": "not-a-list"},
                 ]
             }
         )
@@ -28,7 +29,13 @@ def test_load_contributors_normalizes_entries(tmp_path):
             "name": "Ada Lovelace",
             "contributions": ["documentation"],
             "badges": ["founding-contributor"],
-        }
+        },
+        {
+            "login": "grace",
+            "name": "grace",
+            "contributions": ["compiler"],
+            "badges": [],
+        },
     ]
 
 
@@ -38,6 +45,8 @@ def test_load_contributors_handles_malformed_manifest(tmp_path):
 
     assert contributors.load_contributors(str(manifest)) == []
     assert contributors.load_contributors(str(tmp_path / "missing.json")) == []
+    manifest.write_text(json.dumps({"contributors": "invalid_type"}))
+    assert contributors.load_contributors(str(manifest)) == []
 
 
 def test_contributor_endpoints(monkeypatch):
@@ -60,3 +69,28 @@ def test_contributor_endpoints(monkeypatch):
     assert response.status_code == 200
     assert b"Ada Lovelace" in response.data
     assert b"founding-contributor" in response.data
+    assert b"@ada" in response.data
+
+
+def test_contributor_page_empty(monkeypatch):
+    monkeypatch.setattr(server.contributors, "load_contributors", lambda: [])
+    client = server.app.test_client()
+
+    response = client.get("/api/v1/contributors")
+    assert response.status_code == 200
+    assert response.get_json() == {"contributors": []}
+
+    response = client.get("/contributors")
+    assert response.status_code == 200
+    assert b"Contributor recognition is ready for its first entries" in response.data
+
+
+def test_default_manifest_loads_cleanly():
+    result = contributors.load_contributors()
+    assert isinstance(result, list)
+    assert len(result) > 0
+    for entry in result:
+        assert "login" in entry
+        assert "name" in entry
+        assert isinstance(entry["contributions"], list)
+        assert isinstance(entry["badges"], list)

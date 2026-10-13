@@ -1,3 +1,16 @@
 {
-  "contributors": []
+  "contributors": [
+    {
+      "login": "johnny603",
+      "name": "Johnny Santamaria",
+      "contributions": ["creator", "core", "puzzles", "security", "mentorship"],
+      "badges": ["founding-contributor", "core-maintainer"]
+    },
+    {
+      "login": "ghzhost",
+      "name": "ghzhost",
+      "contributions": ["api-documentation", "testing", "contributor-portal"],
+      "badges": ["early-contributor"]
+    }
+  ]
 }
