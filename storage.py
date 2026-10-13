@@ -78,6 +78,7 @@ def _default_game():
         "level": 1,
         "daily": {"last_challenge_date": None, "completed_dates": []},
         "adventure": {"current_world": None, "unlocked_worlds": [], "campaign_progress": {}},
+        "escaped_rooms": [],
     }
 
 
@@ -173,6 +174,10 @@ def normalize_state(state):
     if not isinstance(adventure, dict):
         adventure = {}
     merged_game["adventure"] = {**game_defaults["adventure"], **adventure}
+    escaped_rooms = game.get("escaped_rooms", [])
+    if not isinstance(escaped_rooms, list):
+        escaped_rooms = []
+    merged_game["escaped_rooms"] = [str(r) for r in escaped_rooms if r]
     normalized["game"] = merged_game
 
     meta = normalized.get("meta", {})
@@ -394,6 +399,21 @@ def update_profile(state: dict, *, display_name=None, preferences=None):
 
 def get_game_state(state: dict):
     return normalize_state(state).get("game", _default_game())
+
+
+def get_escaped_rooms(state: dict) -> list[str]:
+    return list(normalize_state(state).get("game", {}).get("escaped_rooms", []))
+
+
+def mark_room_escaped(state: dict, room_id: str) -> dict:
+    normalized = normalize_state(state)
+    game = normalized.setdefault("game", _default_game())
+    escaped = game.setdefault("escaped_rooms", [])
+    rid = str(room_id).strip()
+    if rid and rid not in escaped:
+        escaped.append(rid)
+    state.update(normalized)
+    return state
 
 
 def award_xp(state: dict, amount: int):

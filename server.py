@@ -9,6 +9,7 @@ import game_systems
 import leaderboard
 import learning_paths
 import puzzle_generator
+import rooms
 import storage
 from sandbox import DockerSandbox, get_runtime
 
@@ -602,6 +603,41 @@ def api_adventure():
 def api_daily():
     state = storage.load_state()
     return jsonify(game_systems.daily_challenge_status(state, catalog_levels()))
+
+
+@app.route("/api/v1/rooms", methods=["GET"])
+def api_rooms():
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped_rooms)
+    return jsonify(summary)
+
+
+@app.route("/api/v1/rooms/<room_id>", methods=["GET"])
+def api_room_detail(room_id):
+    r = rooms.get_room(room_id)
+    if not r:
+        return response(False, error=ERROR_NOT_FOUND), 404
+    state = storage.load_state()
+    escaped_rooms = storage.get_escaped_rooms(state)
+    decorated = rooms.decorate_room(r, escaped_rooms)
+    return jsonify(decorated)
+
+
+@app.route("/rooms", methods=["GET"])
+def web_rooms():
+    state = storage.load_state()
+    escaped = storage.get_escaped_rooms(state)
+    summary = rooms.get_rooms_summary(escaped)
+    escaped_count = len(escaped)
+    return render_template(
+        "rooms.html",
+        rooms=summary,
+        escaped_count=escaped_count,
+        total_rooms=len(summary),
+        game=storage.get_game_state(state),
+        progress=storage.get_progress_summary(state, catalog_levels()),
+    )
 
 
 @app.route("/api/v1/puzzles/generate", methods=["POST"])
