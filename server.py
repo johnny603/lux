@@ -835,5 +835,10 @@ def validate(puzzle, attempt, files):
     return response(False, error="unsupported validator"), 400
 
 
+@app.route("/design-preview", methods=["GET"])
+def design_preview():
+    return render_template("design_preview.html")
+
+
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5050, debug=False)
