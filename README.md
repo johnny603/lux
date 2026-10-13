@@ -1,4 +1,6 @@
 # Interactive Puzzle Server + Agent
+[![CI](https://github.com/johnny603/lux/actions/workflows/ci.yml/badge.svg)](https://github.com/johnny603/lux/actions/workflows/ci.yml) [![CodeQL](https://github.com/johnny603/lux/actions/workflows/codeql.yml/badge.svg)](https://github.com/johnny603/lux/actions/workflows/codeql.yml) [![Snyk](https://github.com/johnny603/lux/actions/workflows/snyk.yml/badge.svg)](https://github.com/johnny603/lux/actions/workflows/snyk.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
+
 An Open Source, free for all game!
 
 ## Overview
