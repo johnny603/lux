@@ -1,12 +1,151 @@
 import copy
 import json
 import os
+import sqlite3
 import tempfile
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import List, Optional
 
 DEFAULT_STATE_ENV = "LUX_STATE"
+DEFAULT_DB_ENV = "LUX_DB_PATH"
 STATE_VERSION = 2
 RECENT_ACTIVITY_LIMIT = 50
+
+
+def default_db_path() -> str:
+    path = os.getenv(DEFAULT_DB_ENV)
+    if path:
+        return path
+    home = os.path.expanduser("~")
+    cfg_dir = os.path.join(home, ".lux")
+    try:
+        os.makedirs(cfg_dir, exist_ok=True)
+    except Exception:
+        pass
+    return os.path.join(cfg_dir, "lux.db")
+
+
+def _get_migrations_dir(migrations_dir: Optional[str] = None) -> Path:
+    if migrations_dir:
+        return Path(migrations_dir)
+    base_dir = Path(__file__).resolve().parent
+    return base_dir / "migrations"
+
+
+def get_migration_files(migrations_dir: Optional[str] = None) -> List[str]:
+    mdir = _get_migrations_dir(migrations_dir)
+    if not mdir.exists() or not mdir.is_dir():
+        return []
+    files = [f.name for f in mdir.glob("*.sql") if f.is_file()]
+    # Validate ordering and formatting
+    files.sort()
+    return files
+
+
+def _init_migrations_table(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS schema_migrations (
+            filename TEXT PRIMARY KEY,
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        """
+    )
+    conn.commit()
+
+
+def get_applied_migrations(db_path: str) -> List[str]:
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+    with sqlite3.connect(db_path) as conn:
+        _init_migrations_table(conn)
+        cursor = conn.cursor()
+        cursor.execute("SELECT filename FROM schema_migrations ORDER BY filename ASC;")
+        rows = cursor.fetchall()
+        return [row[0] for row in rows]
+
+
+def pending_migrations(db_path: str, migrations_dir: Optional[str] = None) -> List[str]:
+    available = get_migration_files(migrations_dir)
+    applied = set(get_applied_migrations(db_path))
+
+    # Check for out-of-order or missing applied migrations
+    applied_list = get_applied_migrations(db_path)
+    for i, app_file in enumerate(applied_list):
+        if app_file not in available:
+            raise ValueError(
+                f"Applied migration '{app_file}' not found in migrations directory."
+            )
+
+    pending = [f for f in available if f not in applied]
+    return pending
+
+
+def apply_migrations(
+    db_path: str, migrations_dir: Optional[str] = None, dry_run: bool = False
+) -> List[str]:
+    db_dir = os.path.dirname(db_path)
+    if db_dir:
+        os.makedirs(db_dir, exist_ok=True)
+
+    available = get_migration_files(migrations_dir)
+    applied_list = get_applied_migrations(db_path)
+    applied_set = set(applied_list)
+
+    # Validate that applied migrations are a valid prefix or present in available files
+    for app_file in applied_list:
+        if app_file not in available:
+            raise ValueError(
+                f"Applied migration '{app_file}' not found in migrations directory."
+            )
+
+    # Check if there are unapplied migrations that precede already applied ones
+    for idx, f in enumerate(available):
+        if f not in applied_set:
+            # Any migration after this that IS in applied_set indicates out-of-order history
+            subsequent_applied = [other for other in available[idx + 1 :] if other in applied_set]
+            if subsequent_applied:
+                first_applied = subsequent_applied[0]
+                raise ValueError(
+                    f"Out-of-order migration detected: '{f}' is unapplied but "
+                    f"'{first_applied}' is already applied."
+                )
+
+    pending = [f for f in available if f not in applied_set]
+
+    if dry_run:
+        return pending
+
+    if not pending:
+        return []
+
+    mdir = _get_migrations_dir(migrations_dir)
+    conn = sqlite3.connect(db_path, isolation_level=None)
+    try:
+        _init_migrations_table(conn)
+        for filename in pending:
+            filepath = mdir / filename
+            sql_content = filepath.read_text(encoding="utf-8")
+            cursor = conn.cursor()
+            cursor.execute("BEGIN TRANSACTION;")
+            try:
+                # Execute individual SQL statements so we stay in the same transaction
+                statements = [s.strip() for s in sql_content.split(";") if s.strip()]
+                for stmt in statements:
+                    cursor.execute(stmt)
+                cursor.execute(
+                    "INSERT INTO schema_migrations (filename) VALUES (?);", (filename,)
+                )
+                cursor.execute("COMMIT;")
+            except Exception:
+                cursor.execute("ROLLBACK;")
+                raise
+    finally:
+        conn.close()
+
+    return pending
 
 
 def _utc_now():
