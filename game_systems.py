@@ -19,6 +19,17 @@ def on_level_solved(state: Dict, level: Optional[Dict] = None) -> Dict:
     if today not in completed:
         completed.append(today)
         daily["last_challenge_date"] = today
+
+    # Check and update room escape progression
+    level_id = str((level or {}).get("id") or "")
+    if level_id:
+        import rooms
+
+        for r in rooms.get_all_rooms():
+            cond = r.get("escape_condition") or {}
+            if str(cond.get("puzzle_id")) == level_id:
+                storage.mark_room_escaped(state, r["id"])
+
     return storage.normalize_state(state)
 
 
