@@ -1,0 +1,17 @@
+# Normalize text to LF regardless of the contributor's core.autocrlf setting.
+* text=auto eol=lf
+
+*.py text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.html text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.gif binary
+
+docs/** linguist-documentation
+.github/** linguist-detectable=false
