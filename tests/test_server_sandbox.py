@@ -1,4 +1,6 @@
 import json
+import os
+import subprocess
 
 import pytest
 
@@ -47,7 +49,11 @@ def test_run_docker_uses_hardened_command(monkeypatch, tmp_path):
 
     monkeypatch.setattr(sandbox.subprocess, "run", fake_run)
 
-    result = server.run_docker({"answer.c": "int main(void){return 0;}"}, "echo ok")
+    result = server.run_docker(
+        {"answer.c": "int main(void){return 0;}"},
+        "echo ok",
+        puzzle_id="p-101",
+    )
 
     assert result["passed"] is True
     assert captured["capture_output"] is True
@@ -76,17 +82,95 @@ def test_run_rejects_unsafe_and_oversized_inputs():
         runtime.run({str(index): "x" for index in range(sandbox.MAX_FILES + 1)}, "echo ok")
 
 
-def test_run_records_audit_event(monkeypatch):
+def test_run_records_audit_event_fields_and_privacy(monkeypatch):
     events = []
     monkeypatch.setattr(sandbox.sandbox_audit, "record_execution", events.append)
-    monkeypatch.setattr(sandbox.subprocess, "run", lambda *args, **kwargs: _CompletedProcess())
+    monkeypatch.setattr(
+        sandbox.subprocess, "run", lambda *args, **kwargs: _CompletedProcess(returncode=0)
+    )
 
-    result = sandbox.DockerSandbox().run({"answer.sh": "echo ok"}, "echo ok")
+    result = sandbox.DockerSandbox().run(
+        {"answer.sh": "secret_solution_code"},
+        "secret_script",
+        puzzle_id="puzz-99",
+    )
 
     assert result["passed"] is True
     assert len(events) == 1
-    assert events[0]["passed"] is True
-    assert "source" not in events[0]
+    event = events[0]
+    assert event["job_id"] is not None
+    assert event["puzzle_id"] == "puzz-99"
+    assert event["passed"] is True
+    assert event["result"] == "success"
+    assert event["exit_code"] == 0
+    assert event["timed_out"] is False
+    assert event["docker_failure"] is False
+    assert event["duration_ms"] >= 0
+    # Ensure raw submitted source / content is never logged
+    assert "secret_solution_code" not in str(event)
+    assert "secret_script" not in str(event)
+
+
+def test_run_records_distinct_timeout_and_docker_failure(monkeypatch):
+    events = []
+    monkeypatch.setattr(sandbox.sandbox_audit, "record_execution", events.append)
+
+    # 1. Timeout
+    def fake_timeout(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=["docker"], timeout=15)
+
+    monkeypatch.setattr(sandbox.subprocess, "run", fake_timeout)
+    res_timeout = sandbox.DockerSandbox().run({"f.txt": "a"}, "echo 1", puzzle_id="p-time")
+    assert res_timeout["passed"] is False
+    assert res_timeout["timed_out"] is True
+    assert events[-1]["result"] == "timeout"
+    assert events[-1]["timed_out"] is True
+    assert events[-1]["docker_failure"] is False
+
+    # 2. Docker daemon / process failure
+    def fake_docker_error(*args, **kwargs):
+        raise OSError("Docker daemon socket unavailable")
+
+    monkeypatch.setattr(sandbox.subprocess, "run", fake_docker_error)
+    res_err = sandbox.DockerSandbox().run({"f.txt": "a"}, "echo 1", puzzle_id="p-dock")
+    assert res_err["passed"] is False
+    assert res_err["docker_failure"] is True
+    assert events[-1]["result"] == "docker_failure"
+    assert events[-1]["timed_out"] is False
+    assert events[-1]["docker_failure"] is True
+
+
+def test_run_cleans_up_temp_directories(monkeypatch):
+    created_dirs = []
+    original_mkdtemp = sandbox.tempfile.mkdtemp
+
+    def tracked_mkdtemp(*args, **kwargs):
+        d = original_mkdtemp(*args, **kwargs)
+        created_dirs.append(d)
+        return d
+
+    monkeypatch.setattr(sandbox.tempfile, "mkdtemp", tracked_mkdtemp)
+    monkeypatch.setattr(
+        sandbox.subprocess, "run", lambda *args, **kwargs: _CompletedProcess(returncode=0)
+    )
+
+    sandbox.DockerSandbox().run({"ok.txt": "data"}, "echo ok")
+    assert len(created_dirs) == 1
+    assert not os.path.exists(created_dirs[0])
+
+
+def test_audit_write_failure_is_best_effort(monkeypatch):
+    def failing_audit(event):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(sandbox.sandbox_audit, "record_execution", failing_audit)
+    monkeypatch.setattr(
+        sandbox.subprocess, "run", lambda *args, **kwargs: _CompletedProcess(returncode=0)
+    )
+
+    # Should not raise exception
+    res = sandbox.DockerSandbox().run({"ok.txt": "data"}, "echo ok")
+    assert res["passed"] is True
 
 
 def test_audit_logger_writes_jsonl(tmp_path):

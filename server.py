@@ -810,8 +810,8 @@ def build_docker_command(source_dir):
     return DockerSandbox().build_command(source_dir)
 
 
-def run_docker(files, script):
-    return get_runtime().run(files, script)
+def run_docker(files, script, puzzle_id=None, **kwargs):
+    return get_runtime().run(files, script, puzzle_id=puzzle_id)
 
 
 def validate(puzzle, attempt, files):
@@ -827,7 +827,10 @@ def validate(puzzle, attempt, files):
 
     if v == "script":
         try:
-            result = run_docker(files, puzzle["test_script"])
+            try:
+                result = run_docker(files, puzzle["test_script"], puzzle_id=puzzle.get("id"))
+            except TypeError:
+                result = run_docker(files, puzzle["test_script"])
             return response(True, correct=result["passed"], output=result)
         except Exception as e:
             return response(False, error=str(e)), 500
