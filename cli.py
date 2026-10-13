@@ -120,3 +120,61 @@ def format_progress_summary(state: Dict, levels: Optional[List[Dict]] = None) ->
     if recent:
         pieces.append("recent " + ", ".join(recent[:3]))
     return " | ".join(pieces)
+
+
+def format_room_objects(objects: Sequence[Dict]) -> str:
+    if not objects:
+        return "No interactive objects found in this chamber."
+    lines = ["Chamber Objects:"]
+    for obj in objects:
+        pickup_tag = "[pickupable]" if obj.get("is_pickupable") else "[static]"
+        lines.append(
+            f"  * {obj.get('name', 'Unknown')} ({obj.get('id', '')}) {pickup_tag}: "
+            f"{obj.get('description', '')}"
+        )
+    return "\n".join(lines)
+
+
+def examine_object(obj: Dict) -> str:
+    if not obj:
+        return "Object not found."
+    lines = [
+        f"=== {obj.get('name')} ===",
+        f"ID: {obj.get('id')}",
+        f"Pickupable: {'Yes' if obj.get('is_pickupable') else 'No'}",
+        f"Description: {obj.get('description')}",
+    ]
+    hint = obj.get("interaction_hint")
+    if hint:
+        lines.append(f"Hint: {hint}")
+    triggers = obj.get("triggers", [])
+    if triggers:
+        lines.append("Actions:")
+        for t in triggers:
+            lines.append(f"  - [{t.get('action')}]: {t.get('message')}")
+    return "\n".join(lines)
+
+
+def format_inventory(inventory_items: Sequence[Dict]) -> str:
+    if not inventory_items:
+        return "Inventory is empty."
+    lines = ["🎒 Player Inventory:"]
+    for item in inventory_items:
+        usable = ""
+        if item.get("usable_on"):
+            usable = f" (Usable on: {', '.join(item.get('usable_on', []))})"
+        name = item.get("name", item.get("id", "Unknown"))
+        oid = item.get("id", "")
+        desc = item.get("description", "")
+        lines.append(f"  * {name} [{oid}]{usable}: {desc}")
+    return "\n".join(lines)
+
+
+def format_room_timer(timer_info: Optional[Dict]) -> str:
+    if not timer_info or not timer_info.get("time_limit_seconds"):
+        return "No active countdown limit."
+    limit = timer_info.get("time_limit_seconds")
+    rem = timer_info.get("remaining_seconds", 0)
+    if timer_info.get("is_expired"):
+        return f"⏱️ TIME EXPIRED! ({limit}s limit exceeded. Reset room to retry)."
+    return f"⏱️ {rem}s remaining (Time limit: {limit}s)"

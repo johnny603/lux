@@ -8,6 +8,7 @@ import cli
 import game_systems
 import leaderboard
 import learning_paths
+import rooms
 import storage
 
 SERVER = os.getenv("PUZZLE_SERVER", "http://127.0.0.1:5050")
@@ -310,6 +311,88 @@ def handle_level(choice):
 
 def _handle_menu_choice(choice, state, levels):
     lowered = choice.lower()
+    if lowered in ("inv", "inventory"):
+        inv_ids = storage.get_inventory(state)
+        items = [
+            rooms.find_object_across_rooms(iid) or {"id": iid, "name": iid, "description": ""}
+            for iid in inv_ids
+        ]
+        print(cli.format_inventory(items))
+        return True
+    if lowered.startswith("pickup ") or lowered.startswith("take "):
+        parts = choice.split(maxsplit=2)
+        if len(parts) >= 2:
+            obj_id = parts[1].strip()
+            room_id = parts[2].strip() if len(parts) > 2 else "room-1"
+            res = rooms.pickup_object(room_id, obj_id, state)
+            if res and res.get("success"):
+                storage.save_state(state)
+                print(f"✅ {res.get('message')}")
+            else:
+                print(f"❌ {res.get('error') if res else 'Object not found'}")
+        else:
+            print("Usage: pickup <object_id> [room_id]")
+        return True
+    if lowered.startswith("use "):
+        parts = choice.split(maxsplit=3)
+        if len(parts) >= 2:
+            obj_id = parts[1].strip()
+            target_id = parts[2].strip() if len(parts) > 2 else None
+            room_id = parts[3].strip() if len(parts) > 3 else "room-1"
+            res = rooms.use_object(room_id, obj_id, target_id=target_id, state=state)
+            if res and res.get("success"):
+                storage.save_state(state)
+                print(f"✨ {res.get('message')}")
+                if res.get("use_effect"):
+                    print(f"   Effect: {res.get('use_effect')}")
+            else:
+                print(f"❌ {res.get('error') if res else 'Object not found'}")
+        else:
+            print("Usage: use <object_id> [target] [room_id]")
+        return True
+    if lowered in ("rooms", "escape-rooms", "escape"):
+        try:
+            r = requests.get(f"{SERVER}/api/v1/rooms", timeout=5)
+            if r.status_code == 200:
+                summary = r.json()
+                print("\n=== Escape Room Progression Map ===")
+                for rm in summary:
+                    st = rm.get("status")
+                    timer = rm.get("timer")
+                    timer_suffix = ""
+                    if timer and timer.get("time_limit_seconds"):
+                        t_sec = timer.get("time_limit_seconds")
+                        if timer.get("is_expired"):
+                            timer_suffix = f" [⏱️ EXPIRED - {t_sec}s limit]"
+                        else:
+                            rem = timer.get("remaining_seconds")
+                            timer_suffix = f" [⏱️ {rem}s remaining]"
+                    elif rm.get("time_limit_seconds"):
+                        timer_suffix = f" [⏱️ {rm.get('time_limit_seconds')}s limit]"
+
+                    if st == "escaped":
+                        status_icon = "🔓"
+                    elif st == "unlocked":
+                        status_icon = "🚪"
+                    elif st == "expired":
+                        status_icon = "⏰"
+                    else:
+                        status_icon = "🔒"
+
+                    r_name = rm.get('name')
+                    r_id = rm.get('id')
+                    print(f"[{status_icon}] {r_id}: {r_name} (Status: {st}){timer_suffix}")
+                    if st in ("locked", "expired"):
+                        print(f"     Lock Info: {rm.get('unlock_instruction')}")
+                    else:
+                        task_desc = rm.get("escape_condition", {}).get("description")
+                        print(f"     Objective: {task_desc}")
+                print("===================================\n")
+            else:
+                print("Could not retrieve escape rooms from server.")
+        except Exception as exc:
+            print("Escape rooms unavailable:", exc)
+        return True
     if lowered in ("ach", "achievements"):
         ach = state.get("achievements", {})
         if not ach:
