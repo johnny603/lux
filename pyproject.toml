@@ -1,0 +1,21 @@
+[project]
+name = "lux"
+version = "0.1.0"
+description = "An open-source puzzle and learning platform combining Linux, programming, cybersecurity, and AI."
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [{ name = "Johnny Santamaria" }]
+
+[project.urls]
+Homepage = "https://github.com/johnny603/lux"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
