@@ -22,11 +22,14 @@ def load_contributors(path: str = DEFAULT_MANIFEST) -> List[Dict[str, Any]]:
         if not isinstance(entry, dict) or not entry.get("login"):
             continue
         badges = entry.get("badges", [])
+        contributions = entry.get("contributions", [])
         valid.append(
             {
                 "login": str(entry["login"]),
                 "name": str(entry.get("name") or entry["login"]),
-                "contributions": [str(item) for item in entry.get("contributions", []) if item],
+                "contributions": [str(item) for item in contributions if item]
+                if isinstance(contributions, list)
+                else [],
                 "badges": [str(item) for item in badges if item]
                 if isinstance(badges, list)
                 else [],
