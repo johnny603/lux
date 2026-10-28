@@ -26,6 +26,17 @@ A successful request returns `correct: true|false`. Script puzzles accept a `fil
 
 Submissions are currently validated without an account and progress is local JSON state. Clients must not assume completion is synchronized across devices.
 
+## Learning path limit
+
+`GET /api/v1/learning-path` accepts an optional positive integer `limit`
+query parameter (default: `5`). For example, `/api/v1/learning-path?limit=2`
+returns at most two recommended levels. An empty, non-integer, zero, or
+negative limit returns HTTP 400 with this JSON response:
+
+```json
+{"ok": false, "error": "limit must be a positive integer"}
+```
+
 ## Authentication contract for hosted v1.0
 
 Authentication is not enabled in the current local-first server. Before hosted multi-user use, add:

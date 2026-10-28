@@ -587,8 +587,13 @@ def api_leaderboard():
 
 @app.route("/api/v1/learning-path", methods=["GET"])
 def api_learning_path():
+    try:
+        limit = int(request.args.get("limit", 5))
+    except ValueError:
+        return response(False, error="limit must be a positive integer"), 400
+    if limit < 1:
+        return response(False, error="limit must be a positive integer"), 400
     state = storage.load_state()
-    limit = int(request.args.get("limit", 5))
     return jsonify(learning_paths.build_learning_path(state, catalog_levels(), limit=limit))
 
 

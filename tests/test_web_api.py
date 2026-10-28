@@ -1,6 +1,8 @@
 import re
 from io import BytesIO
 
+import pytest
+
 import server
 
 
@@ -79,3 +81,21 @@ def test_web_submission_flow(monkeypatch):
     )
     assert response.status_code == 200
     assert b"Submission accepted" in response.data
+
+
+@pytest.mark.parametrize("limit", ["abc", "1.5", "", "0", "-1"])
+def test_learning_path_rejects_invalid_limit(limit, monkeypatch):
+    monkeypatch.setattr(server.storage, "load_state", server.storage.default_state)
+    response = server.app.test_client().get("/api/v1/learning-path", query_string={"limit": limit})
+    assert response.status_code == 400
+    assert response.get_json() == {"ok": False, "error": "limit must be a positive integer"}
+
+
+@pytest.mark.parametrize("query,expected", [({}, 5), ({"limit": "2"}, 2)])
+def test_learning_path_accepts_default_and_positive_limit(query, expected, monkeypatch):
+    monkeypatch.setattr(server.storage, "load_state", server.storage.default_state)
+    response = server.app.test_client().get("/api/v1/learning-path", query_string=query)
+    assert response.status_code == 200
+    payload = response.get_json()
+    assert payload["limit"] == expected
+    assert len(payload["recommended_levels"]) <= expected
